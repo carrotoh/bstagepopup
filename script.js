@@ -3947,46 +3947,150 @@ copyShareTextBtn?.addEventListener(
 
 
 // =====================================================
-// SAVE IMAGE
+// SAVE IMAGE → MOBILE SHARE SHEET
+// =====================================================
+
+// =====================================================
+// SAVE IMAGE → SHARE SHEET
 // =====================================================
 
 saveCardBtn?.addEventListener(
   "click",
-  () => {
+  async () => {
 
-    if (
-      !completedCardBlob ||
-      !completedCardBlobUrl
-    ) {
+    if (!completedCardBlob) {
+      alert("저장할 이미지가 없습니다.");
       return;
     }
 
+    try {
 
-    const link =
-      document.createElement(
-        "a"
+      const file = new File(
+        [completedCardBlob],
+        "EPIKHIGH_23rd_Anniversary_Card.png",
+        {
+          type: "image/png"
+        }
       );
 
 
-    link.href =
-      completedCardBlobUrl;
+      // 공유 기능 자체가 없는 경우
+      if (!navigator.share) {
+
+        alert(
+          "이 브라우저에서는 공유 기능을 지원하지 않습니다."
+        );
+
+        return;
+      }
 
 
-    link.download =
-      "EPIKHIGH_23rd_Anniversary_Card.png";
+      // 파일 공유 지원 여부 확인
+      if (
+        navigator.canShare &&
+        !navigator.canShare({
+          files: [file]
+        })
+      ) {
+
+        alert(
+          "이 브라우저에서는 이미지 파일 공유를 지원하지 않습니다."
+        );
+
+        return;
+      }
 
 
-    document.body.appendChild(
-      link
-    );
+      // 시스템 공유 시트 실행
+      await navigator.share({
+        files: [file]
+      });
 
 
-    link.click();
+    } catch (error) {
+
+      // 사용자가 공유 시트를 닫은 경우
+      if (
+        error?.name === "AbortError"
+      ) {
+        return;
+      }
 
 
-    link.remove();
+      console.error(
+        "공유 오류:",
+        error
+      );
+
+
+      alert(
+        `공유 오류: ${
+          error?.message ||
+          error?.name ||
+          "알 수 없는 오류"
+        }`
+      );
+    }
   }
 );
+
+    // =================================================
+    // 모바일 공유 시트
+    // =================================================
+
+    if (
+      navigator.share &&
+      navigator.canShare &&
+      navigator.canShare({
+        files: [file]
+      })
+    ) {
+      await navigator.share({
+        files: [file]
+      });
+
+      return;
+    }
+
+    // =================================================
+    // 공유 기능을 지원하지 않는 브라우저 fallback
+    // =================================================
+
+    const url = URL.createObjectURL(jpgBlob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download =
+      "EPIKHIGH_23rd_Anniversary_Card.jpg";
+
+    document.body.appendChild(link);
+
+    link.click();
+    link.remove();
+
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
+
+  } catch (error) {
+
+    // 사용자가 공유창을 그냥 닫은 경우
+    if (error?.name === "AbortError") {
+      return;
+    }
+
+    console.error(
+      "이미지 공유 오류:",
+      error
+    );
+
+    alert(
+      "이미지를 공유할 수 없습니다."
+    );
+  }
+});
+
 
 
 // =====================================================
