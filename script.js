@@ -3954,6 +3954,11 @@ copyShareTextBtn?.addEventListener(
 // SAVE IMAGE → SHARE SHEET
 // =====================================================
 
+// =====================================================
+// SAVE IMAGE
+// iOS / Android share sheet + download fallback
+// =====================================================
+
 saveCardBtn?.addEventListener(
   "click",
   async () => {
@@ -3974,66 +3979,111 @@ saveCardBtn?.addEventListener(
       );
 
 
-      // 공유 기능 자체가 없는 경우
-      if (!navigator.share) {
+      // -----------------------------------------------
+      // 1. 파일 공유가 가능한 브라우저
+      // -----------------------------------------------
 
-        alert(
-          "이 브라우저에서는 공유 기능을 지원하지 않습니다."
-        );
+      let canShareFile = false;
 
-        return;
+      try {
+
+        canShareFile =
+          typeof navigator.share === "function" &&
+          (
+            typeof navigator.canShare !== "function" ||
+            navigator.canShare({
+              files: [file]
+            })
+          );
+
+      } catch (error) {
+
+        canShareFile = false;
+
       }
 
 
-      // 파일 공유 지원 여부 확인
-      if (
-        navigator.canShare &&
-        !navigator.canShare({
-          files: [file]
-        })
-      ) {
+      if (canShareFile) {
 
-        alert(
-          "이 브라우저에서는 이미지 파일 공유를 지원하지 않습니다."
-        );
+        try {
 
-        return;
+          await navigator.share({
+            files: [file],
+            title: "EPIK HIGH 23rd Anniversary"
+          });
+
+          return;
+
+        } catch (error) {
+
+          // 사용자가 공유창을 직접 닫음
+          if (
+            error?.name === "AbortError"
+          ) {
+            return;
+          }
+
+          // 공유 자체가 실패하면
+          // 아래 다운로드 fallback으로 진행
+          console.warn(
+            "파일 공유 실패 → 다운로드 방식으로 전환",
+            error
+          );
+        }
+
       }
 
 
-      // 시스템 공유 시트 실행
-      await navigator.share({
-        files: [file]
-      });
+      // -----------------------------------------------
+      // 2. Android 등 파일 공유 미지원 브라우저
+      //    → 이미지 다운로드
+      // -----------------------------------------------
+
+      const downloadUrl =
+        URL.createObjectURL(
+          completedCardBlob
+        );
+
+      const link =
+        document.createElement("a");
+
+      link.href = downloadUrl;
+
+      link.download =
+        "EPIKHIGH_23rd_Anniversary_Card.png";
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      link.remove();
+
+
+      setTimeout(
+        () => {
+          URL.revokeObjectURL(
+            downloadUrl
+          );
+        },
+        1500
+      );
 
 
     } catch (error) {
 
-      // 사용자가 공유 시트를 닫은 경우
-      if (
-        error?.name === "AbortError"
-      ) {
-        return;
-      }
-
-
       console.error(
-        "공유 오류:",
+        "이미지 저장 오류:",
         error
       );
 
-
       alert(
-        `공유 오류: ${
-          error?.message ||
-          error?.name ||
-          "알 수 없는 오류"
-        }`
+        "이미지를 저장하지 못했습니다."
       );
+
     }
+
   }
 );
-
 
 // =====================================================
 // ESC
