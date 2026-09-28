@@ -4034,64 +4034,6 @@ saveCardBtn?.addEventListener(
   }
 );
 
-    // =================================================
-    // 모바일 공유 시트
-    // =================================================
-
-    if (
-      navigator.share &&
-      navigator.canShare &&
-      navigator.canShare({
-        files: [file]
-      })
-    ) {
-      await navigator.share({
-        files: [file]
-      });
-
-      return;
-    }
-
-    // =================================================
-    // 공유 기능을 지원하지 않는 브라우저 fallback
-    // =================================================
-
-    const url = URL.createObjectURL(jpgBlob);
-
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download =
-      "EPIKHIGH_23rd_Anniversary_Card.jpg";
-
-    document.body.appendChild(link);
-
-    link.click();
-    link.remove();
-
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 1000);
-
-  } catch (error) {
-
-    // 사용자가 공유창을 그냥 닫은 경우
-    if (error?.name === "AbortError") {
-      return;
-    }
-
-    console.error(
-      "이미지 공유 오류:",
-      error
-    );
-
-    alert(
-      "이미지를 공유할 수 없습니다."
-    );
-  }
-});
-
-
 
 // =====================================================
 // ESC
