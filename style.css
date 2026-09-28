@@ -389,3 +389,37 @@ img {
 }
 
 .photo-section-label { color: #b71834; font-size: 14px; letter-spacing: 0.04em; }
+/* =========================
+   방문자 카운터
+========================= */
+
+.visitor-counter {
+  position: absolute;
+  top: calc(18px + env(safe-area-inset-top));
+  left: 0;
+
+  z-index: 10;
+
+  width: 100%;
+
+  padding: 0 20px;
+
+  color: #fff;
+
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+
+  text-align: center;
+
+  letter-spacing: -0.02em;
+
+  text-shadow:
+    0 1px 5px rgba(0, 0, 0, 0.5);
+
+  pointer-events: none;
+}
+
+#visitorCount {
+  font-weight: 800;
+}

@@ -944,10 +944,46 @@ window.addEventListener(
 // =====================================================
 // 페이지 초기 실행
 // =====================================================
+// =====================================================
+// 방문자 카운터
+// =====================================================
+
+async function countVisit() {
+
+  const visitorCount =
+    document.getElementById("visitorCount");
+
+  if (!visitorCount || !guestbookDb) {
+    return;
+  }
+
+  try {
+
+    const { data, error } =
+      await guestbookDb.rpc(
+        "increment_visit_count"
+      );
+
+    if (error) {
+      throw error;
+    }
+
+    visitorCount.textContent =
+      Number(data).toLocaleString("ko-KR");
+
+  } catch (error) {
+
+    console.error(
+      "방문자 카운트 오류:",
+      error
+    );
+
+    visitorCount.textContent = "-";
+  }
+}
 
 async function initPage() {
 
-  // 글자수 초기화
   if (
     guestInput &&
     charCount
@@ -958,15 +994,14 @@ async function initPage() {
 
   }
 
-
-  // canvas 준비
   resizeCanvas();
 
+  // 방문 횟수 +1
+  countVisit();
 
-  // ★ Supabase 저장 데이터 로드
+  // 방명록 불러오기
   await connectGuestbook();
 }
-
 
 // script가 body 끝에 있어도,
 // 혹시 DOM 로드 전에 실행되는 경우까지 대응
