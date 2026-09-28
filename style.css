@@ -375,7 +375,7 @@ img {
 }
 
 /* 모바일 */
-@media (max-width: 480px)
+@media (max-width: 480px) {
 
   .random-content-section,
   .guestbook-section {
@@ -430,7 +430,7 @@ img {
 
 .card-maker-section {
   padding: 80px 20px;
-  background: #111;
+  background: #1a1a1a;
   text-align: center;
 }
 
@@ -645,8 +645,52 @@ body.card-modal-open {
 
   text-align: center;
 
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.card-text-item {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 기존 max-width: 86%; 삭제 */
+  width: max-content;
+  max-width: none;
+
+  color: #fff;
+
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+
+  /* ★ 무조건 한 줄 */
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+
+  transform:
+    translate(-50%, -50%)
+    scale(1);
+
+  transform-origin: center;
+
+  cursor: move;
+  pointer-events: auto;
+  touch-action: none;
+
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.card-text-content {
+  display: inline-block;
+  min-width: 20px;
+
+  /* ★ 입력 중에도 줄바꿈 금지 */
+  white-space: nowrap;
+}
 
   transform:
     translate(-50%, -50%)

@@ -1709,6 +1709,14 @@ function drawStroke(stroke) {
 function startDrawing(event) {
 
   /*
+    ★ 텍스트가 선택되어 있으면
+    이번 터치에서는 절대 브러시 시작 안 함.
+  */
+  if (selectedTextId !== null) {
+    return;
+  }
+
+  /*
     마우스 우클릭 방지
   */
   if (
@@ -1717,14 +1725,6 @@ function startDrawing(event) {
   ) {
     return;
   }
-
-  /*
-    텍스트 편집 중이면
-    카드 터치로 바로 그림 시작하지 않음.
-  */
-  finishTextEditing();
-
-  deselectText();
 
   event.preventDefault();
 
@@ -1760,17 +1760,12 @@ function startDrawing(event) {
     event.pointerId
   );
 
-  /*
-    탭 한 번만 해도 점이 보이게
-  */
   strokes.push(
     currentStroke
   );
 
   renderDrawing();
 }
-
-
 function moveDrawing(event) {
 
   if (
@@ -2009,26 +2004,32 @@ addCardTextBtn?.addEventListener(
 
     finishTextEditing();
 
-    const textObject = {
+const textObject = {
 
-      id:
-        nextTextId++,
+  id:
+    nextTextId++,
 
-      text:
-        "",
+  text:
+    "",
 
-      x:
-        50,
+  x:
+    50,
 
-      y:
-        50,
+  y:
+    50,
 
-      scale:
-        1,
+  scale:
+    1,
 
-      color:
-        currentColor
-    };
+  color:
+    currentColor,
+
+  /*
+    ★ 텍스트별 정렬값
+  */
+  align:
+    "center"
+};
 
     textObjects.push(
       textObject
@@ -2067,6 +2068,17 @@ function renderTexts() {
   textObjects.forEach(
     (textObject) => {
 
+      /*
+        예전 history 데이터에
+        align이 없는 경우 대응
+      */
+      if (!textObject.align) {
+
+        textObject.align =
+          "center";
+      }
+
+
       const item =
         document.createElement(
           "div"
@@ -2088,6 +2100,32 @@ function renderTexts() {
 
       item.style.color =
         textObject.color;
+
+      /*
+        ★ 좌 / 중앙 / 우 정렬
+      */
+      item.style.textAlign =
+        textObject.align;
+
+      /*
+        ★ 자동 줄바꿈 금지
+        사용자가 직접 Enter한 줄바꿈만 유지
+      */
+      item.style.whiteSpace =
+        "pre";
+
+      item.style.width =
+        "max-content";
+
+      item.style.maxWidth =
+        "none";
+
+      item.style.wordBreak =
+        "normal";
+
+      item.style.overflowWrap =
+        "normal";
+
 
       item.style.transform =
         `translate(-50%, -50%) scale(${textObject.scale})`;
@@ -2115,6 +2153,25 @@ function renderTexts() {
       content.textContent =
         textObject.text ||
         "텍스트 입력";
+
+
+      /*
+        ★ content 자체에도 동일하게 적용
+      */
+      content.style.whiteSpace =
+        "pre";
+
+      content.style.wordBreak =
+        "normal";
+
+      content.style.overflowWrap =
+        "normal";
+
+      content.style.textAlign =
+        textObject.align;
+
+      content.style.display =
+        "inline-block";
 
 
       const deleteButton =
@@ -2158,8 +2215,14 @@ function renderTexts() {
       );
     }
   );
-}
 
+
+  /*
+    현재 선택 텍스트 기준으로
+    정렬 버튼 상태 갱신
+  */
+  updateTextAlignButtons();
+}
 
 // =====================================================
 // TEXT SELECT
@@ -2185,8 +2248,347 @@ function selectText(id) {
         ) === selectedTextId
       );
     });
+
+
+  /*
+    ★ 선택된 텍스트의 정렬값을
+    버튼 UI에도 반영
+  */
+  updateTextAlignButtons();
 }
 
+// =====================================================
+// TEXT ALIGN
+// =====================================================
+
+let textAlignButtons =
+  document.querySelectorAll(
+    ".text-align-btn"
+  );
+
+
+/*
+  HTML에 정렬 버튼이 아직 없다면
+  JS가 자동으로 생성.
+
+  따라서 기존 HTML을 또 수정할 필요 없음.
+*/
+function createTextAlignTools() {
+
+  if (!addCardTextBtn) {
+    return;
+  }
+
+
+  const existing =
+    document.querySelector(
+      ".text-align-tools"
+    );
+
+  if (existing) {
+
+    textAlignButtons =
+      document.querySelectorAll(
+        ".text-align-btn"
+      );
+
+    return;
+  }
+
+
+  const tools =
+    document.createElement(
+      "div"
+    );
+
+  tools.className =
+    "text-align-tools";
+
+
+  /*
+    현재 CSS에 클래스가 없어도
+    기본적으로 보이도록 최소 스타일 적용
+  */
+  tools.style.display =
+    "flex";
+
+  tools.style.gap =
+    "8px";
+
+  tools.style.marginTop =
+    "8px";
+
+
+  const alignData = [
+
+    {
+      value: "left",
+      label: "왼쪽 정렬",
+      icon: "☰"
+    },
+
+    {
+      value: "center",
+      label: "가운데 정렬",
+      icon: "☰"
+    },
+
+    {
+      value: "right",
+      label: "오른쪽 정렬",
+      icon: "☰"
+    }
+  ];
+
+
+  alignData.forEach(
+    (data) => {
+
+      const button =
+        document.createElement(
+          "button"
+        );
+
+      button.type =
+        "button";
+
+      button.className =
+        "text-align-btn";
+
+      button.dataset.align =
+        data.value;
+
+      button.setAttribute(
+        "aria-label",
+        data.label
+      );
+
+
+      /*
+        텍스트 아이콘
+      */
+      button.innerHTML =
+        `<span>${data.icon}</span>`;
+
+
+      button.style.flex =
+        "1";
+
+      button.style.height =
+        "42px";
+
+      button.style.border =
+        "1px solid rgba(255,255,255,.25)";
+
+      button.style.borderRadius =
+        "10px";
+
+      button.style.background =
+        "#222";
+
+      button.style.color =
+        "#aaa";
+
+      button.style.fontSize =
+        "18px";
+
+
+      /*
+        ☰ 모양을 이용해
+        정렬 방향 표현
+      */
+      const span =
+        button.querySelector(
+          "span"
+        );
+
+      if (span) {
+
+        span.style.display =
+          "block";
+
+        span.style.width =
+          "24px";
+
+        span.style.margin =
+          "0 auto";
+
+        span.style.textAlign =
+          data.value;
+      }
+
+
+      tools.appendChild(
+        button
+      );
+    }
+  );
+
+
+  addCardTextBtn.insertAdjacentElement(
+    "afterend",
+    tools
+  );
+
+
+  textAlignButtons =
+    document.querySelectorAll(
+      ".text-align-btn"
+    );
+
+
+  bindTextAlignButtons();
+
+  updateTextAlignButtons();
+}
+
+
+/*
+  정렬 버튼 선택 표시
+*/
+function updateTextAlignButtons() {
+
+  const object =
+    selectedTextId !== null
+      ? getTextObject(
+          selectedTextId
+        )
+      : null;
+
+
+  const currentAlign =
+    object?.align ||
+    "center";
+
+
+  textAlignButtons.forEach(
+    (button) => {
+
+      const active =
+        button.dataset.align ===
+        currentAlign;
+
+
+      button.classList.toggle(
+        "active",
+        active
+      );
+
+
+      button.style.background =
+        active
+          ? "#ffffff"
+          : "#222222";
+
+      button.style.color =
+        active
+          ? "#111111"
+          : "#aaaaaa";
+    }
+  );
+}
+
+
+/*
+  버튼 이벤트
+*/
+function bindTextAlignButtons() {
+
+  textAlignButtons.forEach(
+    (button) => {
+
+      /*
+        중복 이벤트 방지
+      */
+      if (
+        button.dataset.bound ===
+        "true"
+      ) {
+        return;
+      }
+
+      button.dataset.bound =
+        "true";
+
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          if (
+            selectedTextId === null
+          ) {
+            return;
+          }
+
+
+          finishTextEditing();
+
+
+          const object =
+            getTextObject(
+              selectedTextId
+            );
+
+
+          if (!object) {
+            return;
+          }
+
+
+          const newAlign =
+            button.dataset.align;
+
+
+          if (!newAlign) {
+            return;
+          }
+
+
+          if (
+            object.align ===
+            newAlign
+          ) {
+
+            updateTextAlignButtons();
+
+            return;
+          }
+
+
+          object.align =
+            newAlign;
+
+
+          renderTexts();
+
+          selectText(
+            object.id
+          );
+
+
+          /*
+            ★ 정렬 변경도
+            직전 행동 1회로 Undo 가능
+          */
+          saveHistory();
+        }
+      );
+    }
+  );
+}
+
+
+/*
+  기존 HTML에 버튼이 있는 경우도 대응
+*/
+bindTextAlignButtons();
+
+
+/*
+  없으면 자동 생성
+*/
+createTextAlignTools();
 
 function deselectText() {
 
@@ -2770,27 +3172,6 @@ function setupTextElement(
   );
 
 
-  /*
-    PC:
-    Enter = 완료
-    Shift + Enter = 줄바꿈
-    모바일은 키보드에서 자연스럽게 입력 가능.
-  */
-  content.addEventListener(
-    "keydown",
-    (event) => {
-
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey
-      ) {
-
-        event.preventDefault();
-
-        content.blur();
-      }
-    }
-  );
 
 
   /*
@@ -2857,6 +3238,7 @@ cardStage?.addEventListener(
   "pointerdown",
   (event) => {
 
+    // 텍스트 자체를 누른 경우
     if (
       event.target.closest?.(
         ".card-text-item"
@@ -2865,11 +3247,21 @@ cardStage?.addEventListener(
       return;
     }
 
-    finishTextEditing();
-    selectText(null);
-  }
-);
+    // ★ 텍스트가 선택되어 있었다면
+    // 이번 터치는 선택 해제만 하고 그림은 그리지 않음
+    if (selectedTextId !== null) {
 
+      event.preventDefault();
+      event.stopPropagation();
+
+      finishTextEditing();
+      selectText(null);
+
+      return;
+    }
+  },
+  true
+);
 
 // =====================================================
 // HISTORY
@@ -3121,7 +3513,7 @@ function drawMultilineText(
   }
 
 
-  const x =
+  const centerX =
     (
       textObject.x /
       100
@@ -3129,7 +3521,7 @@ function drawMultilineText(
     drawingCanvas.width;
 
 
-  const y =
+  const centerY =
     (
       textObject.y /
       100
@@ -3143,6 +3535,10 @@ function drawMultilineText(
     );
 
 
+  /*
+    ★ 자동 줄바꿈 절대 없음.
+    사용자가 직접 Enter한 것만 줄 분리.
+  */
   const lines =
     textObject.text
       .replace(/\r/g, "")
@@ -3153,8 +3549,74 @@ function drawMultilineText(
     fontSize * 1.25;
 
 
+  context.save();
+
+
+  context.font =
+    `800 ${fontSize}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
+
+
+  context.fillStyle =
+    textObject.color;
+
+
+  context.textBaseline =
+    "middle";
+
+
+  const align =
+    textObject.align ||
+    "center";
+
+
+  /*
+    각 줄 중 가장 긴 폭 계산.
+    좌/우 정렬 시 전체 텍스트 박스 기준점을 맞춤.
+  */
+  const maxWidth =
+    Math.max(
+      1,
+      ...lines.map(
+        (line) => {
+
+          return context
+            .measureText(
+              line || " "
+            )
+            .width;
+        }
+      )
+    );
+
+
+  let drawX =
+    centerX;
+
+
+  if (
+    align === "left"
+  ) {
+
+    drawX =
+      centerX -
+      maxWidth / 2;
+
+  } else if (
+    align === "right"
+  ) {
+
+    drawX =
+      centerX +
+      maxWidth / 2;
+  }
+
+
+  context.textAlign =
+    align;
+
+
   const startY =
-    y -
+    centerY -
     (
       (
         lines.length - 1
@@ -3164,27 +3626,12 @@ function drawMultilineText(
     2;
 
 
-  context.save();
-
-  context.fillStyle =
-    textObject.color;
-
-  context.textAlign =
-    "center";
-
-  context.textBaseline =
-    "middle";
-
-  context.font =
-    `800 ${fontSize}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
-
-
   lines.forEach(
     (line, index) => {
 
       context.fillText(
         line,
-        x,
+        drawX,
         startY +
           index *
           lineHeight
@@ -3195,7 +3642,6 @@ function drawMultilineText(
 
   context.restore();
 }
-
 
 // =====================================================
 // FINAL EXPORT
