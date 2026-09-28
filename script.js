@@ -3956,7 +3956,9 @@ copyShareTextBtn?.addEventListener(
 
 // =====================================================
 // SAVE IMAGE
-// iOS / Android share sheet + download fallback
+// iOS          → 공유시트
+// Android      → 공유시트
+// Android InApp → JPG 다운로드
 // =====================================================
 
 saveCardBtn?.addEventListener(
@@ -3970,89 +3972,218 @@ saveCardBtn?.addEventListener(
 
     try {
 
-      const file = new File(
-        [completedCardBlob],
-        "EPIKHIGH_23rd_Anniversary_Card.png",
-        {
-          type: "image/png"
-        }
-      );
+      const userAgent =
+        navigator.userAgent || "";
+
+      const isAndroid =
+        /Android/i.test(userAgent);
+
+      // 카카오 / 인스타 / 페이스북 / 네이버 등
+      // 대표적인 Android 인앱 브라우저 감지
+      const isInAppBrowser =
+        /KAKAOTALK|Instagram|FBAN|FBAV|NAVER|Line|DaumApps/i.test(
+          userAgent
+        );
 
 
-      // -----------------------------------------------
-      // 1. 파일 공유가 가능한 브라우저
-      // -----------------------------------------------
+      // =================================================
+      // Android + 인앱 브라우저
+      // → 공유시트 사용하지 않고 JPG 다운로드
+      // =================================================
 
-      let canShareFile = false;
+      if (
+        isAndroid &&
+        isInAppBrowser
+      ) {
 
-      try {
+        const image =
+          new Image();
 
-        canShareFile =
-          typeof navigator.share === "function" &&
-          (
-            typeof navigator.canShare !== "function" ||
-            navigator.canShare({
-              files: [file]
-            })
+        image.src =
+          URL.createObjectURL(
+            completedCardBlob
           );
 
-      } catch (error) {
+        await new Promise(
+          (resolve, reject) => {
 
-        canShareFile = false;
+            image.onload =
+              resolve;
 
-      }
+            image.onerror =
+              reject;
 
-
-      if (canShareFile) {
-
-        try {
-
-          await navigator.share({
-            files: [file],
-            title: "EPIK HIGH 23rd Anniversary"
-          });
-
-          return;
-
-        } catch (error) {
-
-          // 사용자가 공유창을 직접 닫음
-          if (
-            error?.name === "AbortError"
-          ) {
-            return;
           }
+        );
 
-          // 공유 자체가 실패하면
-          // 아래 다운로드 fallback으로 진행
-          console.warn(
-            "파일 공유 실패 → 다운로드 방식으로 전환",
-            error
+
+        const jpgCanvas =
+          document.createElement(
+            "canvas"
+          );
+
+        jpgCanvas.width =
+          image.naturalWidth;
+
+        jpgCanvas.height =
+          image.naturalHeight;
+
+
+        const jpgCtx =
+          jpgCanvas.getContext(
+            "2d"
+          );
+
+
+        // JPG는 투명 배경이 없으므로
+        // 흰색 배경 생성
+        jpgCtx.fillStyle =
+          "#ffffff";
+
+        jpgCtx.fillRect(
+          0,
+          0,
+          jpgCanvas.width,
+          jpgCanvas.height
+        );
+
+
+        jpgCtx.drawImage(
+          image,
+          0,
+          0
+        );
+
+
+        const jpgBlob =
+          await new Promise(
+            (resolve) => {
+
+              jpgCanvas.toBlob(
+                resolve,
+                "image/jpeg",
+                0.95
+              );
+
+            }
+          );
+
+
+        if (!jpgBlob) {
+          throw new Error(
+            "JPG 생성 실패"
           );
         }
 
+
+        const jpgUrl =
+          URL.createObjectURL(
+            jpgBlob
+          );
+
+
+        const link =
+          document.createElement(
+            "a"
+          );
+
+        link.href =
+          jpgUrl;
+
+        link.download =
+          "EPIKHIGH_23rd_Anniversary_Card.jpg";
+
+
+        document.body.appendChild(
+          link
+        );
+
+        link.click();
+
+        link.remove();
+
+
+        setTimeout(
+          () => {
+
+            URL.revokeObjectURL(
+              jpgUrl
+            );
+
+          },
+          1500
+        );
+
+
+        return;
       }
 
 
-      // -----------------------------------------------
-      // 2. Android 등 파일 공유 미지원 브라우저
-      //    → 이미지 다운로드
-      // -----------------------------------------------
+      // =================================================
+      // iPhone / Android 일반 브라우저
+      // → 기존 PNG 공유시트 그대로
+      // =================================================
+
+      const file =
+        new File(
+          [completedCardBlob],
+          "EPIKHIGH_23rd_Anniversary_Card.png",
+          {
+            type: "image/png"
+          }
+        );
+
+
+      if (
+        typeof navigator.share ===
+          "function" &&
+
+        (
+          typeof navigator.canShare !==
+            "function" ||
+
+          navigator.canShare({
+            files: [file]
+          })
+        )
+      ) {
+
+        await navigator.share({
+          files: [file],
+          title:
+            "EPIK HIGH 23rd Anniversary"
+        });
+
+        return;
+      }
+
+
+      // =================================================
+      // 기타 미지원 브라우저
+      // → PNG 다운로드 fallback
+      // =================================================
 
       const downloadUrl =
         URL.createObjectURL(
           completedCardBlob
         );
 
-      const link =
-        document.createElement("a");
 
-      link.href = downloadUrl;
+      const link =
+        document.createElement(
+          "a"
+        );
+
+      link.href =
+        downloadUrl;
 
       link.download =
         "EPIKHIGH_23rd_Anniversary_Card.png";
 
-      document.body.appendChild(link);
+
+      document.body.appendChild(
+        link
+      );
 
       link.click();
 
@@ -4061,9 +4192,11 @@ saveCardBtn?.addEventListener(
 
       setTimeout(
         () => {
+
           URL.revokeObjectURL(
             downloadUrl
           );
+
         },
         1500
       );
@@ -4071,10 +4204,20 @@ saveCardBtn?.addEventListener(
 
     } catch (error) {
 
+      // 공유시트를 사용자가 직접 닫은 경우
+      if (
+        error?.name ===
+        "AbortError"
+      ) {
+        return;
+      }
+
+
       console.error(
         "이미지 저장 오류:",
         error
       );
+
 
       alert(
         "이미지를 저장하지 못했습니다."
