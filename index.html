@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="에픽하이 23주년 방명록">
+  <title>EPIK HIGH 23rd Anniversary</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <main>
+    <section class="hero-section" aria-label="메인 이미지">
+      <img
+        class="main-image"
+        src="assets/main.jpg"
+        alt="에픽하이 23주년 메인 이미지"
+        onerror="this.style.display='none'; this.parentElement.classList.add('no-main-image');"
+      >
+    </section>
+
+    <section class="guestbook-section" aria-label="방명록">
+      <div class="guestbook-inner">
+        <p class="section-label">GUESTBOOK</p>
+        <h2>방명록</h2>
+        <p class="guestbook-description">
+          에픽하이의 23번째 생일을 함께 축하해주세요!
+        </p>
+
+        <form class="guestbook-form" id="guestForm">
+          <label class="sr-only" for="guestInput">방명록 내용</label>
+          <textarea
+            id="guestInput"
+            maxlength="100"
+            rows="3"
+            placeholder="에픽하이 자주 영원히 보자~"
+            required
+          ></textarea>
+
+          <div class="form-bottom">
+            <span id="charCount">0 / 100</span>
+            <button id="guestSubmitBtn" type="submit" aria-label="방명록 남기기">✈️</button>
+          </div>
+        </form>
+
+        <div class="guestbook-list" id="floatingBoard" aria-label="흘러가는 방명록"></div>
+      </div>
+    </section>
+  </main>
+
+  <div
+    class="message-modal"
+    id="messageModal"
+    role="dialog"
+    aria-modal="true"
+    aria-label="방명록 전문"
+    aria-hidden="true"
+  >
+    <div class="message-modal-card">
+      <p id="messageFullText"></p>
+    </div>
+  </div>
+
+  <canvas id="confettiCanvas" aria-hidden="true"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="script.js"></script>
+</body>
+</html>

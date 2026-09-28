@@ -1,0 +1,391 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #111111;
+  --bg-soft: #1a1a1a;
+  --bg-card: #222222;
+  --text: #ffffff;
+  --muted: #a7a7a7;
+  --accent: #ff4757;
+  --border: rgba(255, 255, 255, 0.12);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* 공통 */
+.section-label {
+  margin-bottom: 12px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 1. 메인 */
+.hero-section {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.main-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.hero-section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.hero-section.no-main-image {
+  background:
+    radial-gradient(circle at 50% 35%, #3a3a3a 0%, #171717 45%, #050505 100%);
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 2;
+  width: min(90%, 700px);
+  text-align: center;
+  text-shadow: 0 3px 20px rgba(0, 0, 0, 0.55);
+}
+
+.hero-copy .eyebrow {
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+}
+
+.hero-copy h1 {
+  margin-bottom: 18px;
+  font-size: clamp(42px, 12vw, 80px);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.hero-copy p:last-child {
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.scroll-down-guide {
+  position: absolute;
+  z-index: 3;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  animation: bounce 1.5s infinite;
+  white-space: nowrap;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -8px); }
+}
+
+
+/* 3. 방명록 */
+.guestbook-section {
+  width: 100%;
+  min-height: 100svh;
+  padding: 90px 20px calc(90px + env(safe-area-inset-bottom));
+  background: var(--bg);
+}
+
+.guestbook-inner {
+  width: min(100%, 1100px);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.guestbook-section h2 {
+  margin-bottom: 10px;
+  font-size: clamp(28px, 8vw, 40px);
+  letter-spacing: -0.05em;
+}
+
+.guestbook-description {
+  margin-bottom: 30px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.guestbook-form {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(100%, 1000px);
+  margin: 46px auto 30px;
+  padding: 15px 18px 28px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg-card);
+}
+
+.guestbook-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  max-height: 140px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.guestbook-form textarea::placeholder {
+  color: #777;
+}
+
+.form-bottom {
+  display: contents;
+}
+
+#charCount {
+  position: absolute;
+  bottom: 8px;
+  left: 19px;
+  color: #888;
+  font-size: 11px;
+}
+
+.guestbook-form button {
+  flex: 0 0 66px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 25px;
+  cursor: pointer;
+}
+
+.guestbook-form button:active {
+  transform: scale(0.96);
+}
+
+.guestbook-list {
+  position: relative;
+  height: 430px;
+  overflow: hidden;
+  margin: 0 calc((min(100vw - 40px, 1100px) - 100vw) / 2);
+}
+
+/* 한 줄 = 하나의 레인 */
+.floating-lane {
+  position: relative;
+  width: 100%;
+  height: 68px;
+  overflow: hidden;
+}
+
+/* 메시지들을 한 줄로 연결 */
+.floating-track {
+  position: absolute;
+
+  top: 4px;
+  left: 100%;
+
+  display: flex;
+  align-items: center;
+
+  /* ★ 말풍선 사이 실제 간격 */
+  gap: 28px;
+
+  width: max-content;
+
+  animation: floatTrack 32s linear infinite;
+}
+
+/* 레인별 시작 위치 조금씩 다르게 */
+.floating-lane:nth-child(2) .floating-track {
+  animation-delay: -5s;
+}
+
+.floating-lane:nth-child(3) .floating-track {
+  animation-delay: -10s;
+}
+
+.floating-lane:nth-child(4) .floating-track {
+  animation-delay: -15s;
+}
+
+.floating-lane:nth-child(5) .floating-track {
+  animation-delay: -20s;
+}
+
+.floating-lane:nth-child(6) .floating-track {
+  animation-delay: -25s;
+}
+
+.floating-item {
+  flex: 0 0 auto;
+
+  max-width: 80vw;
+
+  padding: 12px 26px;
+
+  border: 0;
+  border-radius: 999px;
+
+  background: #ff4056;
+  color: #fff;
+
+  font-size: clamp(16px, 4vw, 23px);
+  line-height: 1.4;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  cursor: pointer;
+}
+
+@keyframes floatTrack {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-100% - 100vw));
+  }
+}
+
+@keyframes floatLeft {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-100vw - 100%));
+  }
+}
+
+.message-modal {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  z-index: 10001;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.message-modal.is-open {
+  display: flex;
+}
+
+.message-modal-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 520px);
+  min-height: 220px;
+  max-height: calc(100dvh - 40px);
+  padding: 56px 28px;
+  border-radius: 24px;
+  background: #ff4056;
+  color: white;
+  font-size: 20px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  text-align: center;
+  overflow-y: auto;
+}
+
+.message-modal-card #messageFullText {
+  width: 100%;
+  margin: 0;
+}
+
+/* 5. 컨페티 */
+#confettiCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* 모바일 */
+@media (max-width: 480px)
+
+  .random-content-section,
+  .guestbook-section {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .guestbook-form {
+    padding: 14px;
+  }
+}
+
+.photo-section-label { color: #b71834; font-size: 14px; letter-spacing: 0.04em; }
