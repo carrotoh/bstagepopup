@@ -1023,3 +1023,2618 @@ if (
   initPage();
 
 }
+
+// =====================================================
+// CARD MAKER V3
+// 원본 / 드로잉 / 텍스트 완전 분리
+// 통합 UNDO
+// 텍스트 터치 수정 / 드래그 / 핀치 확대축소
+// =====================================================
+
+const cardStartBtn = document.getElementById("cardStartBtn");
+const cardSelectModal = document.getElementById("cardSelectModal");
+const cardSelectClose = document.getElementById("cardSelectClose");
+const cardGrid = document.getElementById("cardGrid");
+
+const cardEditorModal = document.getElementById("cardEditorModal");
+const cardEditorClose = document.getElementById("cardEditorClose");
+
+const cardStage = document.getElementById("cardStage");
+const cardBaseImage = document.getElementById("cardBaseImage");
+
+const drawingCanvas = document.getElementById("drawingCanvas");
+const drawingCtx = drawingCanvas
+  ? drawingCanvas.getContext("2d")
+  : null;
+
+const textLayer = document.getElementById("textLayer");
+
+const brushSize = document.getElementById("brushSize");
+const brushSizeValue = document.getElementById("brushSizeValue");
+
+const eraserBtn = document.getElementById("eraserBtn");
+const undoDrawingBtn = document.getElementById("undoDrawingBtn");
+const resetDrawingBtn = document.getElementById("resetDrawingBtn");
+
+const addCardTextBtn = document.getElementById("addCardTextBtn");
+const completeCardBtn = document.getElementById("completeCardBtn");
+
+const cardCompleteModal =
+  document.getElementById("cardCompleteModal");
+
+const cardCompleteClose =
+  document.getElementById("cardCompleteClose");
+
+const completedCardPreview =
+  document.getElementById("completedCardPreview");
+
+const copyShareTextBtn =
+  document.getElementById("copyShareTextBtn");
+
+const shareCopyText =
+  document.getElementById("shareCopyText");
+
+const saveCardBtn =
+  document.getElementById("saveCardBtn");
+
+
+// =====================================================
+// STATE
+// =====================================================
+
+let selectedCardUrl = null;
+
+let currentColor = "#ffffff";
+let currentBrushSize = 8;
+
+let eraserMode = false;
+
+let drawingPointerId = null;
+let isDrawing = false;
+let currentStroke = null;
+
+/*
+  실제 드로잉 데이터.
+  이미지 스냅샷을 히스토리에 저장하지 않고
+  stroke 데이터만 저장해서 모바일 메모리 절약.
+*/
+let strokes = [];
+
+/*
+  텍스트 객체 데이터
+*/
+let textObjects = [];
+
+let selectedTextId = null;
+let nextTextId = 1;
+
+/*
+  모든 작업 통합 히스토리
+*/
+let cardHistory = [];
+
+let restoringHistory = false;
+
+let completedCardBlob = null;
+let completedCardBlobUrl = null;
+
+
+// =====================================================
+// UTIL
+// =====================================================
+
+function cloneData(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+
+function getDistance(a, b) {
+  return Math.hypot(
+    b.x - a.x,
+    b.y - a.y
+  );
+}
+
+
+function syncBodyLock() {
+
+  const hasOpenModal =
+    document.querySelector(
+      ".card-maker-modal.is-open"
+    );
+
+  document.body.classList.toggle(
+    "card-modal-open",
+    Boolean(hasOpenModal)
+  );
+}
+
+
+// =====================================================
+// MODAL
+// =====================================================
+
+function openCardModal(modal) {
+
+  if (!modal) return;
+
+  modal.classList.add("is-open");
+
+  modal.setAttribute(
+    "aria-hidden",
+    "false"
+  );
+
+  syncBodyLock();
+}
+
+
+function closeCardModal(modal) {
+
+  if (!modal) return;
+
+  modal.classList.remove("is-open");
+
+  modal.setAttribute(
+    "aria-hidden",
+    "true"
+  );
+
+  syncBodyLock();
+}
+
+
+// =====================================================
+// 카드 목록
+// =====================================================
+
+async function loadCardImages() {
+
+  if (!cardGrid) return;
+
+  if (!guestbookDb) {
+
+    cardGrid.innerHTML =
+      `<p class="card-loading">Supabase 연결에 실패했습니다.</p>`;
+
+    return;
+  }
+
+  cardGrid.innerHTML =
+    `<p class="card-loading">카드를 불러오는 중...</p>`;
+
+  try {
+
+    const { data, error } =
+      await guestbookDb
+        .from("card_images")
+        .select(
+          "id, image_url, sort_order"
+        )
+        .eq(
+          "is_active",
+          true
+        )
+        .order(
+          "sort_order",
+          {
+            ascending: true
+          }
+        );
+
+    if (error) {
+      throw error;
+    }
+
+    cardGrid.innerHTML = "";
+
+    if (!data || data.length === 0) {
+
+      cardGrid.innerHTML =
+        `<p class="card-loading">등록된 카드가 없습니다.</p>`;
+
+      return;
+    }
+
+    data.forEach((card) => {
+
+      const button =
+        document.createElement("button");
+
+      button.type = "button";
+      button.className = "card-thumbnail";
+
+      const image =
+        document.createElement("img");
+
+      image.src = card.image_url;
+      image.alt = "축하카드 디자인";
+      image.loading = "lazy";
+      image.draggable = false;
+
+      button.appendChild(image);
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          openCardEditor(
+            card.image_url
+          );
+        }
+      );
+
+      cardGrid.appendChild(button);
+    });
+
+  } catch (error) {
+
+    console.error(
+      "카드 목록 불러오기 오류:",
+      error
+    );
+
+    cardGrid.innerHTML =
+      `<p class="card-loading">카드를 불러오지 못했습니다.</p>`;
+  }
+}
+
+
+// =====================================================
+// START
+// =====================================================
+
+cardStartBtn?.addEventListener(
+  "click",
+  async () => {
+
+    openCardModal(
+      cardSelectModal
+    );
+
+    await loadCardImages();
+  }
+);
+
+
+cardSelectClose?.addEventListener(
+  "click",
+  () => {
+
+    closeCardModal(
+      cardSelectModal
+    );
+  }
+);
+
+
+cardEditorClose?.addEventListener(
+  "click",
+  () => {
+
+    finishTextEditing();
+
+    closeCardModal(
+      cardEditorModal
+    );
+  }
+);
+
+
+cardCompleteClose?.addEventListener(
+  "click",
+  () => {
+
+    closeCardModal(
+      cardCompleteModal
+    );
+  }
+);
+
+
+// =====================================================
+// 이미지 로딩
+// =====================================================
+
+function loadImage(src) {
+
+  return new Promise(
+    (resolve, reject) => {
+
+      const image = new Image();
+
+      image.crossOrigin = "anonymous";
+
+      image.onload = () => {
+        resolve(image);
+      };
+
+      image.onerror = () => {
+        reject(
+          new Error(
+            "이미지를 불러오지 못했습니다."
+          )
+        );
+      };
+
+      image.src = src;
+    }
+  );
+}
+
+
+// =====================================================
+// EDITOR OPEN
+// =====================================================
+
+async function openCardEditor(imageUrl) {
+
+  if (
+    !drawingCanvas ||
+    !drawingCtx ||
+    !cardBaseImage ||
+    !cardStage ||
+    !textLayer
+  ) {
+
+    console.error(
+      "카드 에디터 DOM을 찾을 수 없습니다."
+    );
+
+    return;
+  }
+
+  try {
+
+    const image =
+      await loadImage(imageUrl);
+
+    selectedCardUrl = imageUrl;
+
+    /*
+      원본은 IMG 레이어
+    */
+    cardBaseImage.src = imageUrl;
+
+    /*
+      드로잉 canvas는 원본 이미지 해상도
+    */
+    drawingCanvas.width =
+      image.naturalWidth;
+
+    drawingCanvas.height =
+      image.naturalHeight;
+
+    /*
+      stage 비율을 원본과 동일하게
+    */
+    cardStage.style.aspectRatio =
+      `${image.naturalWidth} / ${image.naturalHeight}`;
+
+    /*
+      원본 IMG가 stage 전체를 채우게
+    */
+    cardBaseImage.style.width = "100%";
+    cardBaseImage.style.height = "100%";
+    cardBaseImage.style.objectFit = "contain";
+
+    resetEditorState();
+
+    closeCardModal(
+      cardSelectModal
+    );
+
+    openCardModal(
+      cardEditorModal
+    );
+
+    /*
+      레이아웃 완료 후 렌더링
+    */
+    requestAnimationFrame(() => {
+
+      renderDrawing();
+      renderTexts();
+
+      saveHistory(true);
+    });
+
+  } catch (error) {
+
+    console.error(
+      "카드 이미지 오류:",
+      error
+    );
+
+    alert(
+      "카드 이미지를 불러오지 못했습니다."
+    );
+  }
+}
+
+
+// =====================================================
+// EDITOR RESET STATE
+// =====================================================
+
+function resetEditorState() {
+
+  strokes = [];
+  textObjects = [];
+
+  selectedTextId = null;
+  nextTextId = 1;
+
+  cardHistory = [];
+
+  isDrawing = false;
+  currentStroke = null;
+  drawingPointerId = null;
+
+  eraserMode = false;
+
+  eraserBtn?.classList.remove(
+    "active"
+  );
+
+  drawingCtx.clearRect(
+    0,
+    0,
+    drawingCanvas.width,
+    drawingCanvas.height
+  );
+
+  textLayer.innerHTML = "";
+}
+
+
+// =====================================================
+// DRAWING 좌표
+// =====================================================
+
+function getCanvasPoint(event) {
+
+  const rect =
+    drawingCanvas.getBoundingClientRect();
+
+  if (
+    rect.width === 0 ||
+    rect.height === 0
+  ) {
+
+    return {
+      x: 0,
+      y: 0
+    };
+  }
+
+  return {
+
+    x:
+      (
+        event.clientX -
+        rect.left
+      ) *
+      (
+        drawingCanvas.width /
+        rect.width
+      ),
+
+    y:
+      (
+        event.clientY -
+        rect.top
+      ) *
+      (
+        drawingCanvas.height /
+        rect.height
+      )
+  };
+}
+
+
+function getCanvasScale() {
+
+  const rect =
+    drawingCanvas.getBoundingClientRect();
+
+  if (!rect.width) {
+    return 1;
+  }
+
+  return (
+    drawingCanvas.width /
+    rect.width
+  );
+}
+
+
+// =====================================================
+// DRAWING RENDER
+// =====================================================
+
+function renderDrawing() {
+
+  if (
+    !drawingCanvas ||
+    !drawingCtx
+  ) {
+    return;
+  }
+
+  drawingCtx.save();
+
+  drawingCtx.setTransform(
+    1,
+    0,
+    0,
+    1,
+    0,
+    0
+  );
+
+  drawingCtx.globalCompositeOperation =
+    "source-over";
+
+  drawingCtx.clearRect(
+    0,
+    0,
+    drawingCanvas.width,
+    drawingCanvas.height
+  );
+
+  drawingCtx.restore();
+
+
+  strokes.forEach((stroke) => {
+
+    drawStroke(stroke);
+  });
+}
+
+
+function drawStroke(stroke) {
+
+  if (
+    !stroke ||
+    !stroke.points ||
+    stroke.points.length === 0
+  ) {
+    return;
+  }
+
+  drawingCtx.save();
+
+  drawingCtx.lineCap = "round";
+  drawingCtx.lineJoin = "round";
+
+  drawingCtx.lineWidth =
+    stroke.size;
+
+  if (stroke.erase) {
+
+    /*
+      ★ 중요
+      이 canvas에는 낙서밖에 없으므로
+      원본 이미지와 텍스트는 절대 안 지워짐.
+    */
+    drawingCtx.globalCompositeOperation =
+      "destination-out";
+
+  } else {
+
+    drawingCtx.globalCompositeOperation =
+      "source-over";
+
+    drawingCtx.strokeStyle =
+      stroke.color;
+  }
+
+
+  /*
+    점만 찍은 경우
+  */
+  if (stroke.points.length === 1) {
+
+    const point =
+      stroke.points[0];
+
+    drawingCtx.beginPath();
+
+    drawingCtx.arc(
+      point.x,
+      point.y,
+      stroke.size / 2,
+      0,
+      Math.PI * 2
+    );
+
+    if (stroke.erase) {
+
+      drawingCtx.fillStyle =
+        "rgba(0,0,0,1)";
+
+    } else {
+
+      drawingCtx.fillStyle =
+        stroke.color;
+    }
+
+    drawingCtx.fill();
+
+    drawingCtx.restore();
+
+    return;
+  }
+
+
+  drawingCtx.beginPath();
+
+  drawingCtx.moveTo(
+    stroke.points[0].x,
+    stroke.points[0].y
+  );
+
+
+  for (
+    let i = 1;
+    i < stroke.points.length;
+    i++
+  ) {
+
+    const point =
+      stroke.points[i];
+
+    drawingCtx.lineTo(
+      point.x,
+      point.y
+    );
+  }
+
+  drawingCtx.stroke();
+
+  drawingCtx.restore();
+}
+
+
+// =====================================================
+// DRAWING POINTER
+// =====================================================
+
+function startDrawing(event) {
+
+  /*
+    마우스 우클릭 방지
+  */
+  if (
+    event.pointerType === "mouse" &&
+    event.button !== 0
+  ) {
+    return;
+  }
+
+  /*
+    텍스트 편집 중이면
+    카드 터치로 바로 그림 시작하지 않음.
+  */
+  finishTextEditing();
+
+  deselectText();
+
+  event.preventDefault();
+
+  const point =
+    getCanvasPoint(event);
+
+  const canvasScale =
+    getCanvasScale();
+
+  currentStroke = {
+
+    color:
+      currentColor,
+
+    size:
+      currentBrushSize *
+      canvasScale,
+
+    erase:
+      eraserMode,
+
+    points: [
+      point
+    ]
+  };
+
+  isDrawing = true;
+
+  drawingPointerId =
+    event.pointerId;
+
+  drawingCanvas.setPointerCapture?.(
+    event.pointerId
+  );
+
+  /*
+    탭 한 번만 해도 점이 보이게
+  */
+  strokes.push(
+    currentStroke
+  );
+
+  renderDrawing();
+}
+
+
+function moveDrawing(event) {
+
+  if (
+    !isDrawing ||
+    drawingPointerId !==
+      event.pointerId ||
+    !currentStroke
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+
+  const point =
+    getCanvasPoint(event);
+
+  currentStroke.points.push(
+    point
+  );
+
+  /*
+    전체 다시 그려도 카드 1장 규모에서는 충분히 빠름.
+    대신 history가 매우 안정적임.
+  */
+  renderDrawing();
+}
+
+
+function stopDrawing(event) {
+
+  if (
+    !isDrawing ||
+    drawingPointerId !==
+      event.pointerId
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+
+  isDrawing = false;
+  drawingPointerId = null;
+  currentStroke = null;
+
+  try {
+
+    drawingCanvas.releasePointerCapture?.(
+      event.pointerId
+    );
+
+  } catch (error) {
+    // ignore
+  }
+
+  saveHistory();
+}
+
+
+drawingCanvas?.addEventListener(
+  "pointerdown",
+  startDrawing
+);
+
+drawingCanvas?.addEventListener(
+  "pointermove",
+  moveDrawing
+);
+
+drawingCanvas?.addEventListener(
+  "pointerup",
+  stopDrawing
+);
+
+drawingCanvas?.addEventListener(
+  "pointercancel",
+  stopDrawing
+);
+
+
+// =====================================================
+// COLOR
+// =====================================================
+
+document
+  .querySelectorAll(".color-btn")
+  .forEach((button) => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        const color =
+          button.dataset.color;
+
+        if (!color) return;
+
+        currentColor = color;
+
+        /*
+          색 누르면 지우개 해제
+        */
+        eraserMode = false;
+
+        eraserBtn?.classList.remove(
+          "active"
+        );
+
+
+        document
+          .querySelectorAll(
+            ".color-btn"
+          )
+          .forEach((item) => {
+
+            item.classList.remove(
+              "active"
+            );
+          });
+
+
+        button.classList.add(
+          "active"
+        );
+
+
+        /*
+          선택된 텍스트가 있으면
+          그 텍스트 색상 변경.
+        */
+        if (selectedTextId !== null) {
+
+          const textObject =
+            getTextObject(
+              selectedTextId
+            );
+
+          if (textObject) {
+
+            const oldColor =
+              textObject.color;
+
+            if (oldColor !== color) {
+
+              textObject.color =
+                color;
+
+              renderTexts();
+
+              selectText(
+                textObject.id
+              );
+
+              saveHistory();
+            }
+          }
+        }
+      }
+    );
+  });
+
+
+// =====================================================
+// BRUSH SIZE
+// =====================================================
+
+brushSize?.addEventListener(
+  "input",
+  () => {
+
+    currentBrushSize =
+      Number(
+        brushSize.value
+      );
+
+    if (brushSizeValue) {
+
+      brushSizeValue.textContent =
+        String(
+          currentBrushSize
+        );
+    }
+  }
+);
+
+
+// =====================================================
+// ERASER
+// =====================================================
+
+eraserBtn?.addEventListener(
+  "click",
+  () => {
+
+    eraserMode =
+      !eraserMode;
+
+    eraserBtn.classList.toggle(
+      "active",
+      eraserMode
+    );
+
+    finishTextEditing();
+    deselectText();
+  }
+);
+
+
+// =====================================================
+// TEXT DATA
+// =====================================================
+
+function getTextObject(id) {
+
+  return textObjects.find(
+    (item) =>
+      item.id === Number(id)
+  );
+}
+
+
+function getTextElement(id) {
+
+  return textLayer?.querySelector(
+    `[data-text-id="${id}"]`
+  );
+}
+
+
+// =====================================================
+// TEXT ADD
+// =====================================================
+
+addCardTextBtn?.addEventListener(
+  "click",
+  () => {
+
+    finishTextEditing();
+
+    const textObject = {
+
+      id:
+        nextTextId++,
+
+      text:
+        "",
+
+      x:
+        50,
+
+      y:
+        50,
+
+      scale:
+        1,
+
+      color:
+        currentColor
+    };
+
+    textObjects.push(
+      textObject
+    );
+
+    selectedTextId =
+      textObject.id;
+
+    renderTexts();
+
+    saveHistory();
+
+    requestAnimationFrame(
+      () => {
+
+        startTextEditing(
+          textObject.id,
+          true
+        );
+      }
+    );
+  }
+);
+
+
+// =====================================================
+// TEXT RENDER
+// =====================================================
+
+function renderTexts() {
+
+  if (!textLayer) return;
+
+  textLayer.innerHTML = "";
+
+  textObjects.forEach(
+    (textObject) => {
+
+      const item =
+        document.createElement(
+          "div"
+        );
+
+      item.className =
+        "card-text-item";
+
+      item.dataset.textId =
+        String(
+          textObject.id
+        );
+
+      item.style.left =
+        `${textObject.x}%`;
+
+      item.style.top =
+        `${textObject.y}%`;
+
+      item.style.color =
+        textObject.color;
+
+      item.style.transform =
+        `translate(-50%, -50%) scale(${textObject.scale})`;
+
+
+      if (
+        selectedTextId ===
+        textObject.id
+      ) {
+
+        item.classList.add(
+          "is-selected"
+        );
+      }
+
+
+      const content =
+        document.createElement(
+          "span"
+        );
+
+      content.className =
+        "card-text-content";
+
+      content.textContent =
+        textObject.text ||
+        "텍스트 입력";
+
+
+      const deleteButton =
+        document.createElement(
+          "button"
+        );
+
+      deleteButton.type =
+        "button";
+
+      deleteButton.className =
+        "card-text-delete";
+
+      deleteButton.textContent =
+        "×";
+
+      deleteButton.setAttribute(
+        "aria-label",
+        "텍스트 삭제"
+      );
+
+
+      item.appendChild(
+        content
+      );
+
+      item.appendChild(
+        deleteButton
+      );
+
+      textLayer.appendChild(
+        item
+      );
+
+
+      setupTextElement(
+        item,
+        content,
+        deleteButton,
+        textObject
+      );
+    }
+  );
+}
+
+
+// =====================================================
+// TEXT SELECT
+// =====================================================
+
+function selectText(id) {
+
+  selectedTextId =
+    id === null
+      ? null
+      : Number(id);
+
+  textLayer
+    ?.querySelectorAll(
+      ".card-text-item"
+    )
+    .forEach((item) => {
+
+      item.classList.toggle(
+        "is-selected",
+        Number(
+          item.dataset.textId
+        ) === selectedTextId
+      );
+    });
+}
+
+
+function deselectText() {
+
+  finishTextEditing();
+
+  selectedTextId = null;
+
+  textLayer
+    ?.querySelectorAll(
+      ".card-text-item"
+    )
+    .forEach((item) => {
+
+      item.classList.remove(
+        "is-selected"
+      );
+    });
+}
+
+
+// =====================================================
+// TEXT EDIT
+// =====================================================
+
+function startTextEditing(
+  id,
+  selectAll = false
+) {
+
+  const object =
+    getTextObject(id);
+
+  const item =
+    getTextElement(id);
+
+  const content =
+    item?.querySelector(
+      ".card-text-content"
+    );
+
+  if (
+    !object ||
+    !item ||
+    !content
+  ) {
+    return;
+  }
+
+  selectText(id);
+
+  /*
+    placeholder를 실제 텍스트로 만들지 않음.
+  */
+  if (!object.text) {
+    content.textContent = "";
+  }
+
+  content.setAttribute(
+    "contenteditable",
+    "true"
+  );
+
+  content.setAttribute(
+    "spellcheck",
+    "false"
+  );
+
+  item.classList.add(
+    "is-editing"
+  );
+
+  content.focus();
+
+
+  if (selectAll) {
+
+    requestAnimationFrame(
+      () => {
+
+        try {
+
+          const selection =
+            window.getSelection();
+
+          const range =
+            document.createRange();
+
+          range.selectNodeContents(
+            content
+          );
+
+          selection.removeAllRanges();
+          selection.addRange(range);
+
+        } catch (error) {
+          // ignore
+        }
+      }
+    );
+  }
+}
+
+
+function finishTextEditing() {
+
+  const editingContent =
+    textLayer?.querySelector(
+      '.card-text-content[contenteditable="true"]'
+    );
+
+  if (!editingContent) {
+    return;
+  }
+
+  const item =
+    editingContent.closest(
+      ".card-text-item"
+    );
+
+  if (!item) {
+    return;
+  }
+
+  const id =
+    Number(
+      item.dataset.textId
+    );
+
+  const object =
+    getTextObject(id);
+
+  if (!object) {
+    return;
+  }
+
+  const newText =
+    editingContent.innerText
+      .replace(/\r/g, "")
+      .trim();
+
+
+  const changed =
+    object.text !== newText;
+
+  object.text =
+    newText;
+
+
+  editingContent.setAttribute(
+    "contenteditable",
+    "false"
+  );
+
+  item.classList.remove(
+    "is-editing"
+  );
+
+
+  if (!object.text) {
+
+    editingContent.textContent =
+      "텍스트 입력";
+
+  } else {
+
+    editingContent.textContent =
+      object.text;
+  }
+
+
+  if (
+    changed &&
+    !restoringHistory
+  ) {
+
+    saveHistory();
+  }
+}
+
+
+// =====================================================
+// TEXT INTERACTION
+// =====================================================
+
+function setupTextElement(
+  item,
+  content,
+  deleteButton,
+  textObject
+) {
+
+  /*
+    pointerId -> 좌표
+  */
+  const pointers =
+    new Map();
+
+  let startX = 0;
+  let startY = 0;
+
+  let startObjectX = 0;
+  let startObjectY = 0;
+
+  let pinchStartDistance = 0;
+  let pinchStartScale = 1;
+
+  let gestureChanged = false;
+
+  /*
+    pointerup 뒤 click 이벤트가 발생하는 걸 막기 위한 값
+  */
+  let suppressClick = false;
+
+
+  item.addEventListener(
+    "pointerdown",
+    (event) => {
+
+      if (
+        event.target ===
+        deleteButton
+      ) {
+        return;
+      }
+
+
+      /*
+        텍스트 직접 편집 중이면
+        caret 조작을 허용.
+      */
+      if (
+        content.getAttribute(
+          "contenteditable"
+        ) === "true"
+      ) {
+        return;
+      }
+
+
+      event.stopPropagation();
+
+      selectText(
+        textObject.id
+      );
+
+
+      pointers.set(
+        event.pointerId,
+        {
+          x: event.clientX,
+          y: event.clientY
+        }
+      );
+
+
+      try {
+
+        item.setPointerCapture(
+          event.pointerId
+        );
+
+      } catch (error) {
+        // ignore
+      }
+
+
+      /*
+        첫 손가락
+      */
+      if (
+        pointers.size === 1
+      ) {
+
+        startX =
+          event.clientX;
+
+        startY =
+          event.clientY;
+
+        startObjectX =
+          textObject.x;
+
+        startObjectY =
+          textObject.y;
+
+        gestureChanged = false;
+        suppressClick = false;
+      }
+
+
+      /*
+        두 손가락 → PINCH
+      */
+      if (
+        pointers.size === 2
+      ) {
+
+        const points =
+          [...pointers.values()];
+
+        pinchStartDistance =
+          getDistance(
+            points[0],
+            points[1]
+          );
+
+        pinchStartScale =
+          textObject.scale;
+
+        gestureChanged = true;
+        suppressClick = true;
+
+        event.preventDefault();
+      }
+    }
+  );
+
+
+  item.addEventListener(
+    "pointermove",
+    (event) => {
+
+      if (
+        !pointers.has(
+          event.pointerId
+        )
+      ) {
+        return;
+      }
+
+
+      pointers.set(
+        event.pointerId,
+        {
+          x: event.clientX,
+          y: event.clientY
+        }
+      );
+
+
+      /*
+        PINCH SCALE
+      */
+      if (
+        pointers.size >= 2
+      ) {
+
+        event.preventDefault();
+
+        const points =
+          [...pointers.values()];
+
+        const distance =
+          getDistance(
+            points[0],
+            points[1]
+          );
+
+
+        if (
+          pinchStartDistance >
+          0
+        ) {
+
+          const ratio =
+            distance /
+            pinchStartDistance;
+
+          textObject.scale =
+            clamp(
+              pinchStartScale *
+                ratio,
+              0.4,
+              4
+            );
+
+
+          item.style.transform =
+            `translate(-50%, -50%) scale(${textObject.scale})`;
+
+          gestureChanged = true;
+          suppressClick = true;
+        }
+
+        return;
+      }
+
+
+      /*
+        DRAG
+      */
+      if (
+        pointers.size === 1
+      ) {
+
+        const dx =
+          event.clientX -
+          startX;
+
+        const dy =
+          event.clientY -
+          startY;
+
+
+        /*
+          몇 px 정도는 일반 탭으로 취급.
+        */
+        if (
+          Math.abs(dx) < 5 &&
+          Math.abs(dy) < 5 &&
+          !gestureChanged
+        ) {
+          return;
+        }
+
+
+        event.preventDefault();
+
+        const rect =
+          cardStage.getBoundingClientRect();
+
+        if (
+          !rect.width ||
+          !rect.height
+        ) {
+          return;
+        }
+
+
+        textObject.x =
+          clamp(
+            startObjectX +
+              (
+                dx /
+                rect.width
+              ) *
+              100,
+            0,
+            100
+          );
+
+
+        textObject.y =
+          clamp(
+            startObjectY +
+              (
+                dy /
+                rect.height
+              ) *
+              100,
+            0,
+            100
+          );
+
+
+        item.style.left =
+          `${textObject.x}%`;
+
+        item.style.top =
+          `${textObject.y}%`;
+
+
+        gestureChanged = true;
+        suppressClick = true;
+      }
+    }
+  );
+
+
+  function endPointer(event) {
+
+    if (
+      !pointers.has(
+        event.pointerId
+      )
+    ) {
+      return;
+    }
+
+
+    pointers.delete(
+      event.pointerId
+    );
+
+
+    try {
+
+      item.releasePointerCapture(
+        event.pointerId
+      );
+
+    } catch (error) {
+      // ignore
+    }
+
+
+    /*
+      모든 손가락이 떨어졌을 때
+      이동/확대 전체를 행동 1회로 기록.
+    */
+    if (
+      pointers.size === 0 &&
+      gestureChanged
+    ) {
+
+      saveHistory();
+
+      /*
+        pointerup 직후 발생하는 click이
+        텍스트 편집을 켜지 못하게 한 프레임 늦게 해제.
+      */
+      setTimeout(
+        () => {
+
+          suppressClick = false;
+
+        },
+        80
+      );
+
+      gestureChanged = false;
+    }
+  }
+
+
+  item.addEventListener(
+    "pointerup",
+    endPointer
+  );
+
+  item.addEventListener(
+    "pointercancel",
+    endPointer
+  );
+
+
+  /*
+    일반 탭 → 편집
+  */
+  item.addEventListener(
+    "click",
+    (event) => {
+
+      event.stopPropagation();
+
+
+      if (
+        event.target ===
+        deleteButton
+      ) {
+        return;
+      }
+
+
+      if (suppressClick) {
+        return;
+      }
+
+
+      startTextEditing(
+        textObject.id,
+        false
+      );
+    }
+  );
+
+
+  /*
+    편집 완료
+  */
+  content.addEventListener(
+    "blur",
+    () => {
+
+      /*
+        삭제 버튼 누르면서 blur 될 수 있으므로
+        함수에서 안전하게 처리.
+      */
+      finishTextEditing();
+    }
+  );
+
+
+  /*
+    PC:
+    Enter = 완료
+    Shift + Enter = 줄바꿈
+    모바일은 키보드에서 자연스럽게 입력 가능.
+  */
+  content.addEventListener(
+    "keydown",
+    (event) => {
+
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
+
+        event.preventDefault();
+
+        content.blur();
+      }
+    }
+  );
+
+
+  /*
+    삭제 버튼
+  */
+  deleteButton.addEventListener(
+    "pointerdown",
+    (event) => {
+
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  );
+
+
+  deleteButton.addEventListener(
+    "click",
+    (event) => {
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const index =
+        textObjects.findIndex(
+          (object) =>
+            object.id ===
+            textObject.id
+        );
+
+
+      if (index === -1) {
+        return;
+      }
+
+
+      textObjects.splice(
+        index,
+        1
+      );
+
+
+      if (
+        selectedTextId ===
+        textObject.id
+      ) {
+
+        selectedTextId = null;
+      }
+
+
+      renderTexts();
+
+      saveHistory();
+    }
+  );
+}
+
+
+// =====================================================
+// 빈 곳 터치
+// =====================================================
+
+cardStage?.addEventListener(
+  "pointerdown",
+  (event) => {
+
+    if (
+      event.target.closest?.(
+        ".card-text-item"
+      )
+    ) {
+      return;
+    }
+
+    finishTextEditing();
+    selectText(null);
+  }
+);
+
+
+// =====================================================
+// HISTORY
+// =====================================================
+
+function getHistoryState() {
+
+  return {
+
+    strokes:
+      cloneData(
+        strokes
+      ),
+
+    texts:
+      cloneData(
+        textObjects
+      ),
+
+    nextTextId:
+      nextTextId
+  };
+}
+
+
+function historyStateKey(state) {
+
+  return JSON.stringify(
+    state
+  );
+}
+
+
+function saveHistory(
+  force = false
+) {
+
+  if (restoringHistory) {
+    return;
+  }
+
+
+  const state =
+    getHistoryState();
+
+  const key =
+    historyStateKey(
+      state
+    );
+
+  const last =
+    cardHistory[
+      cardHistory.length - 1
+    ];
+
+
+  if (
+    !force &&
+    last &&
+    last.key === key
+  ) {
+    return;
+  }
+
+
+  cardHistory.push({
+    state,
+    key
+  });
+
+
+  /*
+    이미지 dataURL이 아니라
+    벡터 데이터라 50단계까지 보관.
+  */
+  if (
+    cardHistory.length >
+    50
+  ) {
+
+    cardHistory.shift();
+  }
+}
+
+
+// =====================================================
+// HISTORY RESTORE
+// =====================================================
+
+function restoreHistoryState(
+  state
+) {
+
+  if (!state) return;
+
+  restoringHistory = true;
+
+  finishTextEditing();
+
+  strokes =
+    cloneData(
+      state.strokes || []
+    );
+
+  textObjects =
+    cloneData(
+      state.texts || []
+    );
+
+  nextTextId =
+    state.nextTextId || 1;
+
+  selectedTextId = null;
+
+  renderDrawing();
+  renderTexts();
+
+  restoringHistory = false;
+}
+
+
+// =====================================================
+// UNDO
+// =====================================================
+
+undoDrawingBtn?.addEventListener(
+  "click",
+  () => {
+
+    finishTextEditing();
+
+
+    if (
+      cardHistory.length <= 1
+    ) {
+      return;
+    }
+
+
+    /*
+      현재 행동 제거
+    */
+    cardHistory.pop();
+
+
+    /*
+      직전 상태 복원
+    */
+    const previous =
+      cardHistory[
+        cardHistory.length - 1
+      ];
+
+
+    restoreHistoryState(
+      previous.state
+    );
+  }
+);
+
+
+// =====================================================
+// RESET
+// =====================================================
+
+resetDrawingBtn?.addEventListener(
+  "click",
+  () => {
+
+    finishTextEditing();
+
+    /*
+      이미 비어있으면 아무것도 안 함.
+    */
+    if (
+      strokes.length === 0 &&
+      textObjects.length === 0
+    ) {
+      return;
+    }
+
+
+    strokes = [];
+    textObjects = [];
+
+    selectedTextId = null;
+
+    renderDrawing();
+    renderTexts();
+
+    /*
+      처음부터 역시 행동 1회.
+      실행취소하면 초기화 전으로 복구.
+    */
+    saveHistory();
+  }
+);
+
+
+// =====================================================
+// EXPORT HELPERS
+// =====================================================
+
+function getExportFontSize(
+  textObject
+) {
+
+  const stageRect =
+    cardStage.getBoundingClientRect();
+
+  if (!stageRect.width) {
+    return 60;
+  }
+
+
+  /*
+    CSS 기본 26px 기준.
+    실제 canvas 해상도로 환산.
+  */
+  const baseCssFontSize =
+    window.innerWidth <= 480
+      ? 22
+      : 26;
+
+
+  const scaleToCanvas =
+    drawingCanvas.width /
+    stageRect.width;
+
+
+  return (
+    baseCssFontSize *
+    scaleToCanvas *
+    textObject.scale
+  );
+}
+
+
+function drawMultilineText(
+  context,
+  textObject
+) {
+
+  if (
+    !textObject.text ||
+    !textObject.text.trim()
+  ) {
+    return;
+  }
+
+
+  const x =
+    (
+      textObject.x /
+      100
+    ) *
+    drawingCanvas.width;
+
+
+  const y =
+    (
+      textObject.y /
+      100
+    ) *
+    drawingCanvas.height;
+
+
+  const fontSize =
+    getExportFontSize(
+      textObject
+    );
+
+
+  const lines =
+    textObject.text
+      .replace(/\r/g, "")
+      .split("\n");
+
+
+  const lineHeight =
+    fontSize * 1.25;
+
+
+  const startY =
+    y -
+    (
+      (
+        lines.length - 1
+      ) *
+      lineHeight
+    ) /
+    2;
+
+
+  context.save();
+
+  context.fillStyle =
+    textObject.color;
+
+  context.textAlign =
+    "center";
+
+  context.textBaseline =
+    "middle";
+
+  context.font =
+    `800 ${fontSize}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
+
+
+  lines.forEach(
+    (line, index) => {
+
+      context.fillText(
+        line,
+        x,
+        startY +
+          index *
+          lineHeight
+      );
+    }
+  );
+
+
+  context.restore();
+}
+
+
+// =====================================================
+// FINAL EXPORT
+// =====================================================
+
+completeCardBtn?.addEventListener(
+  "click",
+  async () => {
+
+    if (
+      !selectedCardUrl ||
+      !drawingCanvas ||
+      !drawingCtx
+    ) {
+      return;
+    }
+
+
+    finishTextEditing();
+    selectText(null);
+
+
+    try {
+
+      completeCardBtn.disabled =
+        true;
+
+      completeCardBtn.textContent =
+        "이미지 만드는 중...";
+
+
+      const baseImage =
+        await loadImage(
+          selectedCardUrl
+        );
+
+
+      const finalCanvas =
+        document.createElement(
+          "canvas"
+        );
+
+
+      finalCanvas.width =
+        drawingCanvas.width;
+
+      finalCanvas.height =
+        drawingCanvas.height;
+
+
+      const finalCtx =
+        finalCanvas.getContext(
+          "2d"
+        );
+
+
+      /*
+        1. 원본
+      */
+      finalCtx.drawImage(
+        baseImage,
+        0,
+        0,
+        finalCanvas.width,
+        finalCanvas.height
+      );
+
+
+      /*
+        2. 낙서
+      */
+      finalCtx.drawImage(
+        drawingCanvas,
+        0,
+        0,
+        finalCanvas.width,
+        finalCanvas.height
+      );
+
+
+      /*
+        3. 텍스트
+      */
+      textObjects.forEach(
+        (textObject) => {
+
+          drawMultilineText(
+            finalCtx,
+            textObject
+          );
+        }
+      );
+
+
+      const blob =
+        await new Promise(
+          (resolve) => {
+
+            finalCanvas.toBlob(
+              resolve,
+              "image/png",
+              1
+            );
+          }
+        );
+
+
+      if (!blob) {
+
+        throw new Error(
+          "PNG 생성 실패"
+        );
+      }
+
+
+      completedCardBlob =
+        blob;
+
+
+      if (
+        completedCardBlobUrl
+      ) {
+
+        URL.revokeObjectURL(
+          completedCardBlobUrl
+        );
+      }
+
+
+      completedCardBlobUrl =
+        URL.createObjectURL(
+          blob
+        );
+
+
+      completedCardPreview.src =
+        completedCardBlobUrl;
+
+
+      closeCardModal(
+        cardEditorModal
+      );
+
+
+      openCardModal(
+        cardCompleteModal
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "카드 완성 오류:",
+        error
+      );
+
+
+      alert(
+        "이미지 생성에 실패했습니다. 잠시 후 다시 시도해주세요."
+      );
+
+
+    } finally {
+
+      completeCardBtn.disabled =
+        false;
+
+      completeCardBtn.textContent =
+        "축하카드 완성하기";
+    }
+  }
+);
+
+
+// =====================================================
+// COPY
+// =====================================================
+
+async function copyTextFallback(
+  text
+) {
+
+  const textarea =
+    document.createElement(
+      "textarea"
+    );
+
+  textarea.value =
+    text;
+
+  textarea.style.position =
+    "fixed";
+
+  textarea.style.opacity =
+    "0";
+
+  textarea.style.pointerEvents =
+    "none";
+
+  document.body.appendChild(
+    textarea
+  );
+
+  textarea.focus();
+  textarea.select();
+
+  let success = false;
+
+  try {
+
+    success =
+      document.execCommand(
+        "copy"
+      );
+
+  } catch (error) {
+
+    success = false;
+  }
+
+  textarea.remove();
+
+  return success;
+}
+
+
+copyShareTextBtn?.addEventListener(
+  "click",
+  async () => {
+
+    const text =
+      shareCopyText
+        ?.innerText
+        .trim();
+
+    if (!text) {
+      return;
+    }
+
+
+    let success = false;
+
+
+    try {
+
+      if (
+        navigator.clipboard &&
+        window.isSecureContext
+      ) {
+
+        await navigator.clipboard.writeText(
+          text
+        );
+
+        success = true;
+
+      } else {
+
+        success =
+          await copyTextFallback(
+            text
+          );
+      }
+
+    } catch (error) {
+
+      success =
+        await copyTextFallback(
+          text
+        );
+    }
+
+
+    if (!success) {
+
+      alert(
+        "복사에 실패했습니다. 문구를 직접 선택해 복사해주세요."
+      );
+
+      return;
+    }
+
+
+    const original =
+      copyShareTextBtn.textContent;
+
+
+    copyShareTextBtn.textContent =
+      "✓ 복사완료!";
+
+
+    setTimeout(
+      () => {
+
+        copyShareTextBtn.textContent =
+          original;
+
+      },
+      1600
+    );
+  }
+);
+
+
+// =====================================================
+// SAVE IMAGE
+// =====================================================
+
+saveCardBtn?.addEventListener(
+  "click",
+  () => {
+
+    if (
+      !completedCardBlob ||
+      !completedCardBlobUrl
+    ) {
+      return;
+    }
+
+
+    const link =
+      document.createElement(
+        "a"
+      );
+
+
+    link.href =
+      completedCardBlobUrl;
+
+
+    link.download =
+      "EPIKHIGH_23rd_Anniversary_Card.png";
+
+
+    document.body.appendChild(
+      link
+    );
+
+
+    link.click();
+
+
+    link.remove();
+  }
+);
+
+
+// =====================================================
+// ESC
+// =====================================================
+
+document.addEventListener(
+  "keydown",
+  (event) => {
+
+    if (
+      event.key !== "Escape"
+    ) {
+      return;
+    }
+
+
+    /*
+      텍스트 편집 중이면
+      먼저 편집만 종료.
+    */
+    const editing =
+      textLayer?.querySelector(
+        '.card-text-content[contenteditable="true"]'
+      );
+
+
+    if (editing) {
+
+      finishTextEditing();
+
+      return;
+    }
+
+
+    if (
+      cardCompleteModal?.classList.contains(
+        "is-open"
+      )
+    ) {
+
+      closeCardModal(
+        cardCompleteModal
+      );
+
+      return;
+    }
+
+
+    if (
+      cardEditorModal?.classList.contains(
+        "is-open"
+      )
+    ) {
+
+      deselectText();
+
+      closeCardModal(
+        cardEditorModal
+      );
+
+      return;
+    }
+
+
+    if (
+      cardSelectModal?.classList.contains(
+        "is-open"
+      )
+    ) {
+
+      closeCardModal(
+        cardSelectModal
+      );
+    }
+  }
+);
+
+
+// =====================================================
+// 완료 팝업 → 에디터로 돌아갈 때를 대비한 정리
+// =====================================================
+
+window.addEventListener(
+  "beforeunload",
+  () => {
+
+    if (
+      completedCardBlobUrl
+    ) {
+
+      URL.revokeObjectURL(
+        completedCardBlobUrl
+      );
+    }
+  }
+);
