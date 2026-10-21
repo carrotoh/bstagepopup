@@ -98,6 +98,8 @@
         class="text-layer"
       ></div>
 
+      <div id="stickerLayer" class="sticker-layer"></div>
+
     </div>
 
 
@@ -159,6 +161,22 @@
       <button type="button" class="add-text-btn" id="addCardTextBtn">
         T&nbsp;&nbsp; TEXT +
       </button>
+
+<div class="sticker-tools">
+  <button type="button" id="toggleStickerGallery" class="add-text-btn" aria-expanded="false">✦ STICKER +</button>
+  <div id="stickerGallery" class="sticker-gallery" hidden aria-label="스티커 선택"></div>
+</div>
+
+<div class="object-effects-tools" id="objectEffectsTools">
+  <span class="tool-label">OBJECT ROTATION</span>
+  <div class="object-rotate-row">
+    <input type="range" id="objectRotation" min="-180" max="180" step="1" value="0" disabled aria-label="선택한 스티커 또는 텍스트 회전">
+    <output id="objectRotationValue">0°</output>
+    <button type="button" id="resetObjectRotation" disabled>0°</button>
+  </div>
+  <button type="button" id="toggleTextDim" class="text-dim-btn" disabled aria-pressed="false">▣ 텍스트 배경 OFF</button>
+  <span class="object-effects-hint">스티커나 텍스트를 선택한 후 각도·배경을 조절하세요.</span>
+</div>
 
 <div class="text-align-tools">
   <span class="tool-label">TEXT ALIGN</span>

@@ -1048,6 +1048,55 @@ const drawingCtx = drawingCanvas
   : null;
 
 const textLayer = document.getElementById("textLayer");
+const stickerLayer = document.getElementById("stickerLayer");
+const stickerGallery = document.getElementById("stickerGallery");
+const toggleStickerGallery = document.getElementById("toggleStickerGallery");
+const stickerSources = Array.from({length:30}, (_,i) => `stickers/${String(i+1).padStart(2,"0")}.png`);
+let stickerObjects = [];
+let nextStickerId = 1;
+let selectedStickerId = null;
+const stickerImageCache = new Map();
+const objectRotation = document.getElementById("objectRotation");
+const objectRotationValue = document.getElementById("objectRotationValue");
+const resetObjectRotation = document.getElementById("resetObjectRotation");
+const toggleTextDim = document.getElementById("toggleTextDim");
+function selectedEffectObject() {
+  if (selectedStickerId !== null) return {type:"sticker", object:stickerById(selectedStickerId)};
+  if (selectedTextId !== null) return {type:"text", object:textObjects.find(x=>x.id===selectedTextId)};
+  return null;
+}
+function refreshObjectEffects() {
+  const selection = selectedEffectObject();
+  const obj = selection?.object;
+  if (objectRotation) { objectRotation.disabled=!obj; objectRotation.value=String(obj?.rotation||0); }
+  if (objectRotationValue) objectRotationValue.textContent=`${Math.round(obj?.rotation||0)}°`;
+  if (resetObjectRotation) resetObjectRotation.disabled=!obj;
+  if (toggleTextDim) {
+    const isText=selection?.type==="text";
+    toggleTextDim.disabled=!isText;
+    toggleTextDim.classList.toggle("active",!!(isText&&obj?.dimmed));
+    toggleTextDim.setAttribute("aria-pressed",String(!!(isText&&obj?.dimmed)));
+    toggleTextDim.textContent=`▣ 텍스트 배경 ${isText&&obj?.dimmed?"ON":"OFF"}`;
+  }
+}
+function applyEffectRotation(value) {
+  const selection=selectedEffectObject(); if (!selection?.object) return;
+  selection.object.rotation=Number(value);
+  if (selection.type==="sticker") renderStickers(); else renderTexts();
+  refreshObjectEffects();
+}
+objectRotation?.addEventListener("input",e=>applyEffectRotation(e.target.value));
+objectRotation?.addEventListener("change",()=>saveHistory());
+resetObjectRotation?.addEventListener("click",()=>{applyEffectRotation(0);saveHistory();});
+toggleTextDim?.addEventListener("click",()=>{
+  const selection=selectedEffectObject();
+  if (selection?.type!=="text"||!selection.object) return;
+  finishTextEditing();
+  selection.object.dimmed=!selection.object.dimmed;
+  renderTexts();saveHistory();refreshObjectEffects();
+});
+
+
 
 const brushSize = document.getElementById("brushSize");
 const brushSizeValue = document.getElementById("brushSizeValue");
@@ -1466,6 +1515,9 @@ function resetEditorState() {
 
   strokes = [];
   textObjects = [];
+  stickerObjects = [];
+  nextStickerId = 1;
+  selectedStickerId = null;
 
   selectedTextId = null;
   nextTextId = 1;
@@ -1490,6 +1542,9 @@ function resetEditorState() {
   );
 
   textLayer.innerHTML = "";
+  renderStickers();
+  if (stickerGallery) stickerGallery.hidden = true;
+  toggleStickerGallery?.setAttribute("aria-expanded", "false");
 }
 
 
@@ -2128,7 +2183,7 @@ function renderTexts() {
 
 
       item.style.transform =
-        `translate(-50%, -50%) scale(${textObject.scale})`;
+        `translate(-50%, -50%) rotate(${textObject.rotation||0}deg) scale(${textObject.scale})`;
 
 
       if (
@@ -2149,6 +2204,7 @@ function renderTexts() {
 
       content.className =
         "card-text-content";
+      content.classList.toggle("is-dimmed",!!textObject.dimmed);
 
       content.textContent =
         textObject.text ||
@@ -2222,6 +2278,7 @@ function renderTexts() {
     정렬 버튼 상태 갱신
   */
   updateTextAlignButtons();
+  refreshObjectEffects();
 }
 
 // =====================================================
@@ -2255,6 +2312,8 @@ function selectText(id) {
     버튼 UI에도 반영
   */
   updateTextAlignButtons();
+  if (selectedTextId !== null) { selectedStickerId=null; updateStickerSelection(); }
+  refreshObjectEffects();
 }
 
 // =====================================================
@@ -2967,7 +3026,7 @@ function setupTextElement(
 
 
           item.style.transform =
-            `translate(-50%, -50%) scale(${textObject.scale})`;
+            `translate(-50%, -50%) rotate(${textObject.rotation||0}deg) scale(${textObject.scale})`;
 
           gestureChanged = true;
           suppressClick = true;
@@ -3264,6 +3323,145 @@ cardStage?.addEventListener(
 );
 
 // =====================================================
+// STICKERS — independent DOM layer, drag / pinch / delete
+// =====================================================
+function stickerById(id) { return stickerObjects.find(x => x.id === id); }
+function updateStickerSelection() {
+  refreshObjectEffects();
+  stickerLayer?.querySelectorAll(".card-sticker").forEach(el =>
+    el.classList.toggle("is-selected", Number(el.dataset.stickerId) === selectedStickerId));
+}
+function paintStickerElement(el, item) {
+  el.style.left = item.x + "%";
+  el.style.top = item.y + "%";
+  el.style.width = item.width + "%";
+  el.style.transform = `translate(-50%, -50%) rotate(${item.rotation || 0}deg)`;
+}
+function renderStickers() {
+  if (!stickerLayer) return;
+  stickerLayer.replaceChildren();
+  stickerObjects.forEach(item => {
+    const el = document.createElement("div");
+    el.className = "card-sticker";
+    el.dataset.stickerId = item.id;
+    const img = document.createElement("img");
+    img.src = item.src;
+    img.alt = "스티커";
+    img.draggable = false;
+    el.append(img);
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "sticker-delete";
+    del.textContent = "×";
+    del.setAttribute("aria-label", "스티커 삭제");
+    del.addEventListener("pointerdown", e => e.stopPropagation());
+    del.addEventListener("click", e => {
+      e.preventDefault(); e.stopPropagation();
+      stickerObjects = stickerObjects.filter(x => x.id !== item.id);
+      selectedStickerId = null;
+      renderStickers(); saveHistory();
+    });
+    el.append(del);
+    paintStickerElement(el, item);
+    const pointers = new Map();
+    let original = null;
+    el.addEventListener("pointerdown", e => {
+      if (e.target.closest(".sticker-delete")) return;
+      e.preventDefault(); e.stopPropagation();
+      finishTextEditing(); selectText(null);
+      selectedStickerId = item.id;
+      updateStickerSelection();
+      refreshObjectEffects();
+      el.setPointerCapture?.(e.pointerId);
+      pointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+      const pts = [...pointers.values()];
+      original = {x:item.x,y:item.y,width:item.width,pts};
+    });
+    el.addEventListener("pointermove", e => {
+      if (!pointers.has(e.pointerId) || !original) return;
+      e.preventDefault();
+      pointers.set(e.pointerId, {x:e.clientX,y:e.clientY});
+      const pts = [...pointers.values()];
+      const rect = cardStage.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      if (pts.length === 1 && original.pts.length === 1) {
+        item.x = Math.max(0, Math.min(100, original.x + (pts[0].x-original.pts[0].x)/rect.width*100));
+        item.y = Math.max(0, Math.min(100, original.y + (pts[0].y-original.pts[0].y)/rect.height*100));
+      } else if (pts.length === 2 && original.pts.length === 2) {
+        const dist = a => Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y);
+        item.width = Math.max(5, Math.min(85, original.width * dist(pts) / Math.max(1,dist(original.pts))));
+        const avg = a => ({x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2});
+        const old = avg(original.pts), now = avg(pts);
+        item.x = Math.max(0,Math.min(100,original.x+(now.x-old.x)/rect.width*100));
+        item.y = Math.max(0,Math.min(100,original.y+(now.y-old.y)/rect.height*100));
+      }
+      paintStickerElement(el,item);
+    });
+    const finish = e => {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.delete(e.pointerId);
+      if (pointers.size === 0) { original = null; saveHistory(); }
+      else { original = {x:item.x,y:item.y,width:item.width,pts:[...pointers.values()]}; }
+    };
+    el.addEventListener("pointerup",finish);
+    el.addEventListener("pointercancel",finish);
+    stickerLayer.append(el);
+  });
+  updateStickerSelection();
+  refreshObjectEffects();
+}
+
+if (stickerGallery) {
+  stickerSources.forEach((src, i) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "sticker-choice";
+    button.setAttribute("aria-label", `스티커 ${i+1} 추가`);
+    const img = document.createElement("img");
+    img.src = src; img.alt = ""; img.loading = "lazy";
+    button.append(img);
+    button.addEventListener("click", () => {
+      finishTextEditing(); selectText(null);
+      const item = {id:nextStickerId++,src,x:50,y:50,width:25,rotation:0};
+      stickerObjects.push(item);
+      selectedStickerId = item.id;
+      selectText(null); renderStickers(); saveHistory();
+      refreshObjectEffects();
+      stickerGallery.hidden = true;
+      toggleStickerGallery?.setAttribute("aria-expanded","false");
+    });
+    stickerGallery.append(button);
+  });
+}
+toggleStickerGallery?.addEventListener("click", () => {
+  stickerGallery.hidden = !stickerGallery.hidden;
+  toggleStickerGallery.setAttribute("aria-expanded",String(!stickerGallery.hidden));
+});
+cardStage?.addEventListener("pointerdown", e => {
+  if (e.target.closest?.(".card-sticker")) return;
+  if (selectedStickerId !== null) {
+    e.preventDefault(); e.stopPropagation();
+    selectedStickerId = null; updateStickerSelection();
+  }
+}, true);
+function loadStickerImage(src) {
+  if (!stickerImageCache.has(src)) stickerImageCache.set(src,loadImage(src));
+  return stickerImageCache.get(src);
+}
+async function exportStickers(ctx, width, height) {
+  for (const item of stickerObjects) {
+    const img = await loadStickerImage(item.src);
+    const w = width * item.width / 100;
+    const h = w * img.naturalHeight / img.naturalWidth;
+    ctx.save();
+    ctx.translate(width*item.x/100,height*item.y/100);
+    ctx.rotate((item.rotation||0)*Math.PI/180);
+    ctx.drawImage(img,-w/2,-h/2,w,h);
+    ctx.restore();
+  }
+}
+
+// =====================================================
 // HISTORY
 // =====================================================
 
@@ -3280,6 +3478,9 @@ function getHistoryState() {
       cloneData(
         textObjects
       ),
+
+    stickers: cloneData(stickerObjects),
+    nextStickerId,
 
     nextTextId:
       nextTextId
@@ -3373,11 +3574,15 @@ function restoreHistoryState(
 
   nextTextId =
     state.nextTextId || 1;
+  stickerObjects = cloneData(state.stickers || []);
+  nextStickerId = state.nextStickerId || 1;
+  selectedStickerId = null;
 
   selectedTextId = null;
 
   renderDrawing();
   renderTexts();
+  renderStickers();
 
   restoringHistory = false;
 }
@@ -3438,7 +3643,8 @@ resetDrawingBtn?.addEventListener(
     */
     if (
       strokes.length === 0 &&
-      textObjects.length === 0
+      textObjects.length === 0 &&
+      stickerObjects.length === 0
     ) {
       return;
     }
@@ -3446,11 +3652,14 @@ resetDrawingBtn?.addEventListener(
 
     strokes = [];
     textObjects = [];
+    stickerObjects = [];
+    selectedStickerId = null;
 
     selectedTextId = null;
 
     renderDrawing();
     renderTexts();
+    renderStickers();
 
     /*
       처음부터 역시 행동 1회.
@@ -3550,7 +3759,8 @@ function drawMultilineText(
 
 
   context.save();
-
+  context.translate(centerX,centerY);
+  context.rotate((textObject.rotation||0)*Math.PI/180);
 
   context.font =
     `800 ${fontSize}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
@@ -3590,7 +3800,7 @@ function drawMultilineText(
 
 
   let drawX =
-    centerX;
+    0;
 
 
   if (
@@ -3598,15 +3808,13 @@ function drawMultilineText(
   ) {
 
     drawX =
-      centerX -
-      maxWidth / 2;
+      -maxWidth / 2;
 
   } else if (
     align === "right"
   ) {
 
     drawX =
-      centerX +
       maxWidth / 2;
   }
 
@@ -3616,7 +3824,7 @@ function drawMultilineText(
 
 
   const startY =
-    centerY -
+    0 -
     (
       (
         lines.length - 1
@@ -3625,6 +3833,22 @@ function drawMultilineText(
     ) /
     2;
 
+
+  if (textObject.dimmed) {
+    const padX=fontSize*0.36, padY=fontSize*0.22;
+    const boxHeight=(lines.length-1)*lineHeight+fontSize;
+    context.fillStyle="rgba(0,0,0,0.58)";
+    const bx=-maxWidth/2-padX;
+    const by=-boxHeight/2-padY;
+    const bw=maxWidth+padX*2;
+    const bh=boxHeight+padY*2;
+    const radius=fontSize*0.3;
+    context.beginPath();
+    if (typeof context.roundRect==="function") context.roundRect(bx,by,bw,bh,radius);
+    else context.rect(bx,by,bw,bh);
+    context.fill();
+    context.fillStyle=textObject.color;
+  }
 
   lines.forEach(
     (line, index) => {
@@ -3723,7 +3947,12 @@ completeCardBtn?.addEventListener(
 
 
       /*
-        3. 텍스트
+        3. 스티커 (투명 PNG 원본 비율 유지)
+      */
+      await exportStickers(finalCtx, finalCanvas.width, finalCanvas.height);
+
+      /*
+        4. 텍스트
       */
       textObjects.forEach(
         (textObject) => {
