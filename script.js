@@ -4094,10 +4094,13 @@ copyShareTextBtn?.addEventListener(
   "click",
   async () => {
 
-    const text =
-      shareCopyText
-        ?.innerText
-        .trim();
+    // 이벤트 필수 문구를 DOM 렌더링과 무관하게 정확히 복사
+    const text = [
+      "https://carrotoh.github.io/bstagepopup/",
+      "",
+      "#EPIKHIGH23rdAnniversary",
+      "#에픽하이23번째생일축하해"
+    ].join("\n");
 
     if (!text) {
       return;
