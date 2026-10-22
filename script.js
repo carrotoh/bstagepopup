@@ -1076,7 +1076,8 @@ function refreshObjectEffects() {
     toggleTextDim.disabled=!isText;
     toggleTextDim.classList.toggle("active",!!(isText&&obj?.dimmed));
     toggleTextDim.setAttribute("aria-pressed",String(!!(isText&&obj?.dimmed)));
-    toggleTextDim.textContent=`▣ 텍스트 배경 ${isText&&obj?.dimmed?"ON":"OFF"}`;
+    const status = toggleTextDim.querySelector(".dim-status");
+    if (status) status.textContent = isText && obj?.dimmed ? "ON" : "OFF";
   }
 }
 function applyEffectRotation(value) {
@@ -1901,85 +1902,77 @@ drawingCanvas?.addEventListener(
 
 
 // =====================================================
-// COLOR
+// COLOR — rainbow + white / black
 // =====================================================
 
-document
-  .querySelectorAll(".color-btn")
-  .forEach((button) => {
+const rainbowPalette = document.getElementById("rainbowPalette");
+const rainbowIndicator = document.getElementById("rainbowIndicator");
+const solidColorButtons = document.querySelectorAll(".solid-color-btn");
 
-    button.addEventListener(
-      "click",
-      () => {
+function applyEditorColor(color, sourceButton = null) {
+  currentColor = color;
+  eraserMode = false;
+  eraserBtn?.classList.remove("active");
+  solidColorButtons.forEach(button => button.classList.toggle("active", button === sourceButton));
+  rainbowPalette?.classList.toggle("active", sourceButton === null);
 
-        const color =
-          button.dataset.color;
+  if (selectedTextId !== null) {
+    const textObject = getTextObject(selectedTextId);
+    if (textObject && textObject.color !== color) {
+      textObject.color = color;
+      renderTexts();
+      selectText(textObject.id);
+      saveHistory();
+    }
+  }
+}
 
-        if (!color) return;
-
-        currentColor = color;
-
-        /*
-          색 누르면 지우개 해제
-        */
-        eraserMode = false;
-
-        eraserBtn?.classList.remove(
-          "active"
-        );
-
-
-        document
-          .querySelectorAll(
-            ".color-btn"
-          )
-          .forEach((item) => {
-
-            item.classList.remove(
-              "active"
-            );
-          });
-
-
-        button.classList.add(
-          "active"
-        );
-
-
-        /*
-          선택된 텍스트가 있으면
-          그 텍스트 색상 변경.
-        */
-        if (selectedTextId !== null) {
-
-          const textObject =
-            getTextObject(
-              selectedTextId
-            );
-
-          if (textObject) {
-
-            const oldColor =
-              textObject.color;
-
-            if (oldColor !== color) {
-
-              textObject.color =
-                color;
-
-              renderTexts();
-
-              selectText(
-                textObject.id
-              );
-
-              saveHistory();
-            }
-          }
-        }
-      }
-    );
+solidColorButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    if (button.dataset.color) applyEditorColor(button.dataset.color, button);
   });
+});
+
+// 레인보우 바는 터치 / 드래그 / 마우스 / 키보드 모두 지원.
+// 양 끝은 빨강, 중간은 청록으로 이어지는 360도 HSV 색상환.
+function pickRainbowColor(clientX) {
+  if (!rainbowPalette) return;
+  const rect = rainbowPalette.getBoundingClientRect();
+  if (!rect.width) return;
+  const fraction = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  const hue = Math.round(fraction * 360);
+  rainbowIndicator.style.left = `${fraction * 100}%`;
+  rainbowPalette.setAttribute("aria-valuenow", String(hue));
+  applyEditorColor(`hsl(${hue}, 100%, 50%)`);
+}
+
+let rainbowPointerId = null;
+rainbowPalette?.addEventListener("pointerdown", event => {
+  if (event.button !== undefined && event.button !== 0) return;
+  rainbowPointerId = event.pointerId;
+  rainbowPalette.setPointerCapture?.(event.pointerId);
+  pickRainbowColor(event.clientX);
+  event.preventDefault();
+});
+rainbowPalette?.addEventListener("pointermove", event => {
+  if (rainbowPointerId === event.pointerId) {
+    pickRainbowColor(event.clientX);
+    event.preventDefault();
+  }
+});
+for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) {
+  rainbowPalette?.addEventListener(eventName, event => {
+    if (rainbowPointerId === event.pointerId) rainbowPointerId = null;
+  });
+}
+rainbowPalette?.addEventListener("keydown", event => {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  event.preventDefault();
+  const current = Number(rainbowPalette.getAttribute("aria-valuenow")) || 0;
+  const next = Math.max(0, Math.min(360, current + (event.key === "ArrowRight" ? 5 : -5)));
+  const rect = rainbowPalette.getBoundingClientRect();
+  pickRainbowColor(rect.left + rect.width * next / 360);
+});
 
 
 // =====================================================

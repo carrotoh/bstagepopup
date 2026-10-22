@@ -946,3 +946,47 @@ body.card-modal-open {
 .object-effects-tools button:disabled,.object-effects-tools input:disabled{opacity:.4}
 .object-effects-hint{color:#aaa;font-size:11px}
 .card-text-content.is-dimmed{background:rgba(0,0,0,.58);border-radius:.3em;padding:.22em .36em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+
+
+/* 2026-10 card editor controls layout */
+.prestage-tools { display:flex; flex-direction:column; gap:12px; margin:0 0 14px; }
+.prestage-tools .tool-group { gap:8px; }
+.prestage-tools .color-list { align-items:center; gap:clamp(6px,2vw,12px); flex-wrap:nowrap; }
+.prestage-tools .color-btn, .eraser-palette-btn { width:clamp(27px,7vw,34px); height:clamp(27px,7vw,34px); flex:0 0 auto; border-radius:50%; }
+.eraser-palette-btn { display:grid; place-items:center; border:2px solid transparent; background:transparent; padding:0; cursor:pointer; overflow:hidden; }
+.eraser-palette-btn img { display:block; width:100%; height:100%; object-fit:contain; }
+.eraser-palette-btn.active { border-color:#fff; box-shadow:0 0 0 2px #111; }
+.editor-action-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; align-items:stretch; }
+.text-action-box { display:flex; align-items:stretch; min-width:0; background:#222; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.text-action-box .add-text-btn { flex:1; width:auto; min-width:0; border:0; border-radius:0; background:transparent; padding:0 5px; }
+.text-action-box .text-dim-btn { width:48px; min-width:48px; padding:5px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; border:0; border-left:1px solid var(--border); border-radius:0; background:transparent; color:#fff; }
+.text-action-box .text-dim-btn img { display:block; width:25px; height:25px; object-fit:contain; }
+.text-action-box .text-dim-btn .dim-status { font-size:9px; line-height:1; font-weight:800; }
+.text-action-box .text-dim-btn.active { background:#555; color:#fff; }
+.text-action-box .text-dim-btn:disabled { opacity:.45; }
+.editor-action-row .sticker-tools { display:block; min-width:0; }
+.editor-action-row .sticker-tools .add-text-btn { height:100%; }
+.drawing-tools .tool-buttons { grid-template-columns:repeat(2,minmax(0,1fr)); }
+
+
+/* Rainbow palette + white / black / eraser */
+.prestage-tools .rainbow-color-list { display:flex; align-items:center; gap:8px; width:100%; flex-wrap:nowrap; }
+.rainbow-palette {
+  position:relative; flex:1 1 0; min-width:0; height:36px; border-radius:7px;
+  background:linear-gradient(to right, #ff0000 0%,#ffff00 16.666%,#00ff00 33.333%,#00ffff 50%,#0000ff 66.666%,#ff00ff 83.333%,#ff0000 100%);
+  cursor:crosshair; touch-action:none; user-select:none; -webkit-user-select:none;
+}
+.rainbow-indicator { display:none; position:absolute; top:50%; left:0; width:13px; height:calc(100% + 7px); transform:translate(-50%,-50%); border:2px solid white; border-radius:6px; box-shadow:0 0 0 1px #222,0 1px 5px #0008; pointer-events:none; }
+.rainbow-palette.active .rainbow-indicator { display:block; }
+.prestage-tools .solid-color-btn, .prestage-tools .eraser-palette-btn { width:34px; height:34px; min-width:34px; flex:0 0 34px; }
+.prestage-tools .solid-color-btn { border:2px solid #777; }
+.prestage-tools .solid-color-btn.active { border-color:#fff; box-shadow:0 0 0 2px #777; }
+.prestage-tools .eraser-palette-btn { color:#fff; background:#303030; border:1px solid #666; display:grid; place-items:center; }
+.prestage-tools .eraser-palette-btn.active { background:#ff4056; border-color:#fff; }
+/* A large, visible draggable thumb for both touch and mouse */
+#brushSize { display:block; height:28px; margin:0; appearance:none; -webkit-appearance:none; background:transparent; cursor:pointer; touch-action:pan-y; }
+#brushSize::-webkit-slider-runnable-track { height:6px; border-radius:99px; background:#626262; }
+#brushSize::-moz-range-track { height:6px; border-radius:99px; background:#626262; }
+#brushSize::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:22px; height:22px; margin-top:-8px; background:#fff; border:3px solid #ff4056; border-radius:50%; box-shadow:0 1px 5px #0008; }
+#brushSize::-moz-range-thumb { width:17px; height:17px; background:#fff; border:3px solid #ff4056; border-radius:50%; box-shadow:0 1px 5px #0008; }
+@media (max-width:380px) { .prestage-tools .rainbow-color-list { gap:6px; } .prestage-tools .solid-color-btn, .prestage-tools .eraser-palette-btn { width:30px; height:30px; min-width:30px; flex-basis:30px; } }

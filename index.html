@@ -79,6 +79,49 @@
     <!--
       원본 / 드로잉 / 텍스트가 서로 다른 레이어
     -->
+    <div class="prestage-tools">
+
+      <div class="tool-group">
+        <span class="tool-label">COLOR</span>
+
+        <div class="color-list rainbow-color-list">
+          <div id="rainbowPalette" class="rainbow-palette" role="slider" tabindex="0"
+               aria-label="레인보우 색상 선택" aria-valuemin="0" aria-valuemax="360" aria-valuenow="0">
+            <span id="rainbowIndicator" class="rainbow-indicator" aria-hidden="true"></span>
+          </div>
+          <button type="button" class="color-btn solid-color-btn active"
+                  data-color="#ffffff" style="--pen-color:#ffffff" aria-label="흰색" title="흰색"></button>
+          <button type="button" class="color-btn solid-color-btn"
+                  data-color="#000000" style="--pen-color:#000000" aria-label="검정색" title="검정색"></button>
+          <button type="button" id="eraserBtn" class="eraser-palette-btn" aria-label="지우개" title="지우개">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m7 21-4-4a2 2 0 0 1 0-2.83L14.17 3a2 2 0 0 1 2.83 0L21 7a2 2 0 0 1 0 2.83L9.83 21H7Z"/>
+              <path d="m7 11 6 6"/>
+              <path d="M5 21h14"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+
+      <div class="tool-group">
+        <div class="brush-title-row">
+          <span class="tool-label">BRUSH</span>
+          <span id="brushSizeValue">8</span>
+        </div>
+
+        <input
+          type="range"
+          id="brushSize"
+          min="2"
+          max="30"
+          value="8"
+        >
+      </div>
+
+
+    </div>
+
     <div class="card-stage" id="cardStage">
 
       <img
@@ -105,67 +148,19 @@
 
     <div class="drawing-tools">
 
-      <div class="tool-group">
-        <span class="tool-label">COLOR</span>
-
-        <div class="color-list">
-
-          <button type="button" class="color-btn active"
-            data-color="#ffffff"
-            style="--pen-color:#ffffff"></button>
-
-          <button type="button" class="color-btn"
-            data-color="#ff4056"
-            style="--pen-color:#ff4056"></button>
-
-          <button type="button" class="color-btn"
-            data-color="#ffd43b"
-            style="--pen-color:#ffd43b"></button>
-
-          <button type="button" class="color-btn"
-            data-color="#4dabf7"
-            style="--pen-color:#4dabf7"></button>
-
-          <button type="button" class="color-btn"
-            data-color="#69db7c"
-            style="--pen-color:#69db7c"></button>
-
-          <button type="button" class="color-btn"
-            data-color="#da77f2"
-            style="--pen-color:#da77f2"></button>
-
-          <button type="button" class="color-btn"
-            data-color="#111111"
-            style="--pen-color:#111111"></button>
-
+      <div class="editor-action-row">
+        <div class="text-action-box">
+          <button type="button" class="add-text-btn" id="addCardTextBtn">T&nbsp;&nbsp; TEXT +</button>
+          <button type="button" id="toggleTextDim" class="text-dim-btn" disabled aria-pressed="false" aria-label="선택한 텍스트 배경 켜기 또는 끄기" title="텍스트 배경">
+            <img src="Dimmed.png" alt="" draggable="false">
+            <span class="dim-status">OFF</span>
+          </button>
+        </div>
+        <div class="sticker-tools">
+          <button type="button" id="toggleStickerGallery" class="add-text-btn" aria-expanded="false">✦ STICKER +</button>
         </div>
       </div>
-
-
-      <div class="tool-group">
-        <div class="brush-title-row">
-          <span class="tool-label">BRUSH</span>
-          <span id="brushSizeValue">8</span>
-        </div>
-
-        <input
-          type="range"
-          id="brushSize"
-          min="2"
-          max="30"
-          value="8"
-        >
-      </div>
-
-
-      <button type="button" class="add-text-btn" id="addCardTextBtn">
-        T&nbsp;&nbsp; TEXT +
-      </button>
-
-<div class="sticker-tools">
-  <button type="button" id="toggleStickerGallery" class="add-text-btn" aria-expanded="false">✦ STICKER +</button>
-  <div id="stickerGallery" class="sticker-gallery" hidden aria-label="스티커 선택"></div>
-</div>
+      <div id="stickerGallery" class="sticker-gallery" hidden aria-label="스티커 선택"></div>
 
 <div class="object-effects-tools" id="objectEffectsTools">
   <span class="tool-label">OBJECT ROTATION</span>
@@ -174,7 +169,6 @@
     <output id="objectRotationValue">0°</output>
     <button type="button" id="resetObjectRotation" disabled>0°</button>
   </div>
-  <button type="button" id="toggleTextDim" class="text-dim-btn" disabled aria-pressed="false">▣ 텍스트 배경 OFF</button>
   <span class="object-effects-hint">스티커나 텍스트를 선택한 후 각도·배경을 조절하세요.</span>
 </div>
 
@@ -203,7 +197,6 @@
 
 <div class="tool-buttons">
   <button type="button" id="undoDrawingBtn">↶ 실행취소</button>
-  <button type="button" id="eraserBtn">지우개</button>
   <button type="button" id="resetDrawingBtn">처음부터</button>
 </div>
 
